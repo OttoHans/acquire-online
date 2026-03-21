@@ -79,6 +79,60 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .card-fin-val{color:var(--gold)}
 .card-stocks{display:flex;flex-wrap:wrap;gap:4px}
 .card-stk{font-size:0.62rem;padding:2px 6px;border-radius:1px}
+
+/* ── SNAPSHOT VIEW ── */
+#snapshot-screen{align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}
+.snapshot-wrap{width:min(600px,98vw);padding:1rem}
+.snapshot-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.snapshot-title{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold);letter-spacing:3px}
+.snapshot-back{background:none;border:1px solid var(--faint);color:var(--muted);padding:4px 10px;font-size:0.7rem;letter-spacing:1px;cursor:pointer;transition:all 0.12s}
+.snapshot-back:hover{border-color:var(--gold);color:var(--gold)}
+.snapshot-board{width:100%;background:var(--surf2);border:1px solid var(--bdr);padding:8px;margin-bottom:1rem;overflow-x:auto}
+.snap-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.snap-tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:7px;font-family:'Courier Prime',monospace;color:var(--muted);background:var(--surf3);border:0.5px solid var(--faint)}
+.snap-tile.worldwide{background:var(--ww-bg);border-color:var(--ww);color:rgba(255,255,255,0.5)}
+.snap-tile.sackson{background:var(--sk-bg);border-color:var(--sk);color:rgba(255,255,255,0.5)}
+.snap-tile.festival{background:var(--fe-bg);border-color:var(--fe);color:rgba(255,255,255,0.5)}
+.snap-tile.imperial{background:var(--im-bg);border-color:var(--im);color:rgba(255,255,255,0.5)}
+.snap-tile.american{background:var(--am-bg);border-color:var(--am);color:rgba(255,255,255,0.5)}
+.snap-tile.continental{background:var(--co-bg);border-color:var(--co);color:rgba(255,255,255,0.5)}
+.snap-tile.zeta{background:var(--ze-bg);border-color:var(--ze);color:rgba(255,255,255,0.5)}
+.snap-tile.neutral-placed{background:var(--surf3);border-color:var(--muted)}
+.snapshot-scores{background:var(--surf);border:1px solid var(--bdr);padding:1rem;margin-bottom:1rem}
+.snapshot-actions{display:flex;gap:8px;flex-wrap:wrap}
+.snap-btn{flex:1;background:none;border:1px solid var(--faint);color:var(--muted);padding:0.6rem;font-size:0.78rem;letter-spacing:2px;cursor:pointer;transition:all 0.15s;min-width:120px}
+.snap-btn:hover{border-color:var(--gold);color:var(--gold)}
+.snap-btn.rematch{border-color:var(--gold2);color:var(--gold);background:#150f00}
+.snap-btn.rematch:hover{background:#1e1600}
+.snap-btn.dismiss{border-color:#603020;color:#a05030}
+.snap-btn.dismiss:hover{border-color:#c04020;color:#e06030}
+
+/* card view button */
+.card-view-btn{display:inline-block;margin-top:8px;font-size:0.65rem;letter-spacing:2px;color:var(--muted);border:1px solid var(--faint);padding:3px 10px;cursor:pointer;transition:all 0.12s;background:none}
+.card-view-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── ADMIN PANEL ── */
+.admin-sheet{position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:var(--surf);border-top:2px solid var(--gold2);border-left:1px solid var(--bdr2);border-right:1px solid var(--bdr2);z-index:90;display:flex;flex-direction:column;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.34,1.2,0.64,1)}
+.admin-sheet.open{transform:translateY(0)}
+.admin-sheet-handle{height:4px;width:40px;background:var(--faint);border-radius:2px;margin:10px auto 0}
+.admin-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.admin-title{font-family:'Playfair Display',serif;font-size:0.95rem;color:var(--gold);letter-spacing:3px}
+.admin-close{background:none;border:1px solid var(--faint);color:var(--muted);padding:2px 10px;font-size:0.7rem;cursor:pointer}
+.admin-body{flex:1;overflow-y:auto;padding:10px 14px}
+.admin-game{background:var(--surf2);border:1px solid var(--bdr);padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.admin-game-info{flex:1;min-width:0}
+.admin-game-name{font-size:0.78rem;color:var(--txt);font-weight:700}
+.admin-game-meta{font-size:0.65rem;color:var(--muted);margin-top:2px;line-height:1.6}
+.admin-game-status{font-size:0.65rem;padding:2px 7px;border-radius:1px;flex-shrink:0}
+.admin-game-status.active{background:#1a2800;color:#60a020;border:1px solid #2a4010}
+.admin-game-status.ended{background:var(--surf3);color:var(--muted);border:1px solid var(--faint)}
+.admin-del-btn{background:none;border:1px solid #603020;color:#a05030;padding:4px 10px;font-size:0.68rem;cursor:pointer;flex-shrink:0;transition:all 0.12s}
+.admin-del-btn:hover{border-color:#c04020;color:#e06030}
+.admin-pin-prompt{padding:1rem;text-align:center}
+.admin-pin-prompt input{background:#0a0800;border:1px solid var(--faint);color:var(--txt);padding:0.6rem;font-family:'Courier Prime',monospace;font-size:1.2rem;letter-spacing:6px;text-align:center;outline:none;width:160px;margin-bottom:0.6rem;display:block;margin-left:auto;margin-right:auto}
+.admin-pin-prompt input:focus{border-color:var(--gold)}
+.admin-pin-prompt button{background:var(--gold2);border:none;color:#0a0800;padding:6px 20px;font-family:'Playfair Display',serif;font-size:0.9rem;letter-spacing:2px;cursor:pointer}
+.admin-err{color:#c04040;font-size:0.72rem;margin-top:0.4rem}
 .card-ended{opacity:0.6}
 .card-ended .card-name{color:var(--muted)}
 .empty-dash{text-align:center;padding:3rem 1rem;color:var(--muted);font-size:0.82rem;line-height:2}
@@ -290,7 +344,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 <!-- DASHBOARD -->
 <div id="dash-screen" class="screen">
   <div class="dash-header">
-    <div class="dash-title">ACQUIRE</div>
+    <div class="dash-title" id="dash-title-el" style="user-select:none;cursor:default">ACQUIRE</div>
     <div class="dash-player">Playing as <b id="dash-player-name">—</b></div>
     <div class="dash-actions">
       <button class="dash-btn" id="join-game-btn">JOIN</button>
@@ -397,6 +451,50 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
       <tbody id="scores-body"></tbody>
     </table>
     <button class="btn-cta" onclick="goToDashboard()">BACK TO GAMES</button>
+  </div>
+</div>
+
+
+<!-- SNAPSHOT SCREEN -->
+<div id="snapshot-screen" class="screen">
+  <div class="snapshot-wrap">
+    <div class="snapshot-header">
+      <div class="snapshot-title" id="snap-title">GAME OVER</div>
+      <button class="snapshot-back" onclick="goToDashboard()">← GAMES</button>
+    </div>
+    <div class="snapshot-board">
+      <div class="snap-grid" id="snap-grid"></div>
+    </div>
+    <div class="snapshot-scores">
+      <div style="font-size:0.6rem;letter-spacing:3px;color:var(--muted);margin-bottom:8px;text-transform:uppercase">Final Scores</div>
+      <table class="scores-tbl" style="margin:0">
+        <thead><tr><th>#</th><th>Player</th><th>Cash</th></tr></thead>
+        <tbody id="snap-scores"></tbody>
+      </table>
+    </div>
+    <div class="snapshot-actions">
+      <button class="snap-btn rematch" id="snap-rematch-btn">↺ REMATCH</button>
+      <button class="snap-btn dismiss" id="snap-dismiss-btn">DISMISS</button>
+    </div>
+    <div style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:0.5rem" id="snap-status"></div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-sheet" id="admin-sheet">
+  <div class="admin-sheet-handle"></div>
+  <div class="admin-header">
+    <div class="admin-title">ADMIN</div>
+    <button class="admin-close" onclick="closeAdmin()">CLOSE</button>
+  </div>
+  <div class="admin-body" id="admin-body">
+    <div class="admin-pin-prompt" id="admin-pin-prompt">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.8rem;letter-spacing:2px">ENTER ADMIN PIN</div>
+      <input type="password" id="admin-pin-input" placeholder="······" maxlength="20" inputmode="numeric"/>
+      <button onclick="submitAdminPin()">ENTER</button>
+      <div class="admin-err" id="admin-err"></div>
+    </div>
+    <div id="admin-games-list" style="display:none"></div>
   </div>
 </div>
 
@@ -534,6 +632,7 @@ function goToDashboard(){
   myPin=null;myIdx=null;gameState=null;myHand=[];selectedTile=null;
   showScreen('dash');
   document.getElementById('dash-player-name').textContent=myName;
+  initAdminLongPress();
   loadDashboard();
 }
 
@@ -570,8 +669,14 @@ function buildGameCard(g){
       <div class="card-fin-item"><span class="card-fin-label">Cash</span><span class="card-fin-val">$${g.myCash.toLocaleString()}</span></div>
       <div class="card-fin-item"><span class="card-fin-label">Net Worth</span><span class="card-fin-val">$${g.myNet.toLocaleString()}</span></div>
     </div>
-    <div class="card-stocks">${stocksHtml}</div>`;
-  div.addEventListener('click',()=>enterGame(g.pin));
+    <div class="card-stocks">${stocksHtml}</div>
+    ${g.ended?'<button class="card-view-btn">VIEW RESULTS</button>':''}`;
+  if(g.ended){
+    div.querySelector('.card-view-btn').addEventListener('click',e=>{e.stopPropagation();openSnapshot(g.pin);});
+    div.addEventListener('click',()=>openSnapshot(g.pin));
+  } else {
+    div.addEventListener('click',()=>enterGame(g.pin));
+  }
   return div;
 }
 
@@ -1025,6 +1130,146 @@ window.addEventListener('resize',()=>{if(currentScreen()==='game')fitBoard();});
 
 // Deep link from push notification
 const urlPin=new URLSearchParams(location.search).get('pin');
+
+
+// ── SNAPSHOT ──
+let snapPin=null;
+async function openSnapshot(pin){
+  snapPin=pin;
+  showScreen('snapshot');
+  document.getElementById('snap-title').textContent='Loading...';
+  document.getElementById('snap-status').textContent='';
+  try{
+    const r=await fetch(`/game-snapshot/${pin}`);
+    const{state}=await r.json();
+    renderSnapshot(pin,state);
+  }catch(e){
+    document.getElementById('snap-title').textContent='Could not load game.';
+  }
+}
+function renderSnapshot(pin,state){
+  const name=state.gameName||`Game ${pin}`;
+  document.getElementById('snap-title').textContent=name+' — FINAL';
+  // Board
+  const grid=document.getElementById('snap-grid');
+  grid.innerHTML='';
+  const COLS_S=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const ROWS_S=['A','B','C','D','E','F','G','H','I'];
+  for(const row of ROWS_S){for(const col of COLS_S){
+    const tid=col+row;const div=document.createElement('div');
+    div.className='snap-tile';
+    const val=state.board[tid];
+    if(val)div.classList.add(val==='neutral'?'neutral-placed':val);
+    div.textContent=col+row;
+    grid.appendChild(div);
+  }}
+  // Scores
+  const sorted=[...state.players].sort((a,b)=>b.cash-a.cash);
+  const tbody=document.getElementById('snap-scores');tbody.innerHTML='';
+  sorted.forEach((p,rank)=>{
+    const tr=document.createElement('tr');if(rank===0)tr.className='winner';
+    tr.innerHTML=`<td>${rank+1}</td><td>${p.name}${p.name===myName?' (you)':''}</td><td>$${p.cash.toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+document.getElementById('snap-rematch-btn').addEventListener('click',async()=>{
+  if(!snapPin)return;
+  document.getElementById('snap-status').textContent='Creating rematch...';
+  try{
+    const r=await fetch('/rematch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:snapPin,requestingPlayer:myName})});
+    const data=await r.json();
+    if(data.error){document.getElementById('snap-status').textContent=data.error;return;}
+    // Go to lobby for the new game
+    myPin=data.pin;
+    connectAndJoin(data.pin,myName,data.mode);
+  }catch(e){document.getElementById('snap-status').textContent='Server error.';}
+});
+document.getElementById('snap-dismiss-btn').addEventListener('click',async()=>{
+  if(!snapPin)return;
+  try{
+    await fetch('/dismiss-game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerName:myName,pin:snapPin})});
+    goToDashboard();
+  }catch(e){document.getElementById('snap-status').textContent='Could not dismiss.';}
+});
+
+// ── ADMIN ──
+let adminAuthed=false,adminPin=null;
+let longPressTimer=null;
+
+function initAdminLongPress(){
+  const title=document.getElementById('dash-title-el');
+  if(!title)return;
+  title.addEventListener('mousedown',()=>{longPressTimer=setTimeout(()=>openAdmin(),800);});
+  title.addEventListener('mouseup',()=>clearTimeout(longPressTimer));
+  title.addEventListener('mouseleave',()=>clearTimeout(longPressTimer));
+  title.addEventListener('touchstart',()=>{longPressTimer=setTimeout(()=>openAdmin(),800);},{passive:true});
+  title.addEventListener('touchend',()=>clearTimeout(longPressTimer));
+}
+function openAdmin(){
+  document.getElementById('admin-sheet').classList.add('open');
+  if(!adminAuthed){
+    document.getElementById('admin-pin-prompt').style.display='block';
+    document.getElementById('admin-games-list').style.display='none';
+    document.getElementById('admin-pin-input').value='';
+    document.getElementById('admin-err').textContent='';
+  } else {
+    loadAdminGames();
+  }
+}
+function closeAdmin(){document.getElementById('admin-sheet').classList.remove('open');}
+document.getElementById('admin-pin-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitAdminPin();});
+async function submitAdminPin(){
+  const pin=document.getElementById('admin-pin-input').value.trim();
+  if(!pin)return;
+  adminPin=pin;
+  try{
+    const r=await fetch('/admin/games',{headers:{'x-admin-pin':pin}});
+    if(r.status===403){document.getElementById('admin-err').textContent='Incorrect PIN.';adminPin=null;return;}
+    adminAuthed=true;
+    document.getElementById('admin-pin-prompt').style.display='none';
+    document.getElementById('admin-games-list').style.display='block';
+    const{games}=await r.json();
+    renderAdminGames(games);
+  }catch(e){document.getElementById('admin-err').textContent='Server error.';}
+}
+async function loadAdminGames(){
+  try{
+    const r=await fetch('/admin/games',{headers:{'x-admin-pin':adminPin}});
+    if(r.status===403){adminAuthed=false;openAdmin();return;}
+    const{games}=await r.json();
+    renderAdminGames(games);
+  }catch(e){}
+}
+function renderAdminGames(games){
+  const el=document.getElementById('admin-games-list');
+  el.innerHTML=`<div style="font-size:0.62rem;color:var(--muted);letter-spacing:2px;margin-bottom:8px">${games.length} GAME${games.length!==1?'S':''} TOTAL</div>`;
+  if(!games.length){el.innerHTML+='<div style="color:var(--muted);font-size:0.8rem;text-align:center;padding:1rem">No games found.</div>';return;}
+  games.forEach(g=>{
+    const ago=timeAgo(new Date(g.updatedAt));
+    const div=document.createElement('div');div.className='admin-game';
+    div.innerHTML=`<div class="admin-game-info">
+        <div class="admin-game-name">${g.gameName||'Game '+g.pin} <span style="color:var(--muted);font-size:0.65rem;font-weight:400">· ${g.pin}</span></div>
+        <div class="admin-game-meta">${g.players.join(' · ')}<br>${g.ended?'FINISHED':`Turn: ${g.currentPlayer} · ${g.phase}`} · ${ago}</div>
+      </div>
+      <span class="admin-game-status ${g.ended?'ended':'active'}">${g.ended?'DONE':'ACTIVE'}</span>
+      <button class="admin-del-btn" data-pin="${g.pin}">DELETE</button>`;
+    div.querySelector('.admin-del-btn').addEventListener('click',async()=>{
+      if(!confirm(`Delete game ${g.pin} (${g.gameName||g.pin})? This cannot be undone.`))return;
+      try{
+        const r=await fetch(`/admin/games/${g.pin}`,{method:'DELETE',headers:{'x-admin-pin':adminPin}});
+        if(r.ok){div.remove();}
+      }catch(e){}
+    });
+    el.appendChild(div);
+  });
+}
+function timeAgo(date){
+  const sec=Math.floor((Date.now()-date)/1000);
+  if(sec<60)return'just now';
+  if(sec<3600)return Math.floor(sec/60)+'m ago';
+  if(sec<86400)return Math.floor(sec/3600)+'h ago';
+  return Math.floor(sec/86400)+'d ago';
+}
 
 // Boot
 initName();

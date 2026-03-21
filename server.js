@@ -42,7 +42,33 @@ async function dbInit() {
       subscription JSONB NOT NULL,
       UNIQUE(pin, player_name)
     );
+    CREATE TABLE IF NOT EXISTS dismissed_games (
+      player_name VARCHAR(50) NOT NULL,
+      pin VARCHAR(6) NOT NULL,
+      dismissed_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY(player_name, pin)
+    );
   `);
+}
+
+async function dismissGame(playerName, pin) {
+  await pool.query(
+    `INSERT INTO dismissed_games(player_name,pin) VALUES($1,$2) ON CONFLICT DO NOTHING`,
+    [playerName, pin]
+  );
+}
+async function getDismissedPins(playerName) {
+  const r = await pool.query('SELECT pin FROM dismissed_games WHERE player_name=$1', [playerName]);
+  return r.rows.map(row => row.pin);
+}
+async function deleteGame(pin) {
+  await pool.query('DELETE FROM games WHERE pin=$1', [pin]);
+  await pool.query('DELETE FROM dismissed_games WHERE pin=$1', [pin]);
+  await pool.query('DELETE FROM push_subs WHERE pin=$1', [pin]);
+}
+async function getAllGames() {
+  const r = await pool.query('SELECT pin, state, updated_at FROM games ORDER BY updated_at DESC');
+  return r.rows;
 }
 
 async function saveGame(pin, state) {
@@ -60,11 +86,18 @@ async function countActiveGames() {
   return parseInt(r.rows[0].count, 10);
 }
 async function getPlayerGames(playerName) {
+  const dismissed = await getDismissedPins(playerName);
   const r = await pool.query(
-    `SELECT pin, state, updated_at FROM games WHERE state->'players' @> $1::jsonb ORDER BY updated_at DESC`,
+    `SELECT pin, state, updated_at FROM games WHERE state->'players' @> $1::jsonb ORDER BY
+      CASE WHEN state->>'ended'='true' THEN 1 ELSE 0 END,
+      updated_at DESC`,
     [JSON.stringify([{ name: playerName }])]
   );
-  return r.rows;
+  // Filter out dismissed completed games; always show active games
+  return r.rows.filter(row => {
+    if (!row.state.ended) return true; // always show active
+    return !dismissed.includes(row.pin); // hide dismissed completed
+  });
 }
 async function savePushSub(pin, playerName, sub) {
   await pool.query(
@@ -205,6 +238,71 @@ app.get('/my-games/:playerName',async(req,res)=>{
     const rows=await getPlayerGames(decodeURIComponent(playerName));
     const summaries=rows.map(row=>gameSummary(row.pin,row.state,playerName));
     res.json({games:summaries});
+  }catch(e){res.status(500).json({error:'Server error'});}
+});
+
+// DISMISS a completed game (per-player)
+app.post('/dismiss-game',async(req,res)=>{
+  try{
+    const{playerName,pin}=req.body;
+    if(!playerName||!pin)return res.status(400).json({error:'Missing fields'});
+    await dismissGame(playerName,pin);
+    res.json({ok:true});
+  }catch(e){res.status(500).json({error:'Server error'});}
+});
+
+// REMATCH — create a new game with same players and mode
+app.post('/rematch',async(req,res)=>{
+  try{
+    const{pin,requestingPlayer}=req.body;
+    const state=await loadGame(pin);
+    if(!state)return res.status(404).json({error:'Game not found'});
+    const activeCount=await countActiveGames();
+    if(activeCount>=MAX_ACTIVE_GAMES)return res.status(429).json({error:`Server at capacity (${MAX_ACTIVE_GAMES} active games).`});
+    const newPin=generatePin();
+    const mode=state.advancedMode?'advanced':'beginner';
+    const gameName=state.gameName?`${state.gameName} (rematch)`:null;
+    lobbies.set(newPin,{players:[],open:true,mode,gameName,rematchPlayers:state.players.map(p=>p.name)});
+    res.json({pin:newPin,mode,gameName,players:state.players.map(p=>p.name)});
+  }catch(e){res.status(500).json({error:'Server error'});}
+});
+
+// ADMIN — get all games (requires ADMIN_PIN header)
+app.get('/admin/games',async(req,res)=>{
+  const adminPin=process.env.ADMIN_PIN;
+  if(!adminPin||req.headers['x-admin-pin']!==adminPin)return res.status(403).json({error:'Forbidden'});
+  try{
+    const rows=await getAllGames();
+    const games=rows.map(row=>({
+      pin:row.pin,
+      gameName:row.state.gameName||null,
+      players:row.state.players.map(p=>p.name),
+      ended:row.state.ended,
+      started:row.state.started,
+      phase:row.state.phase,
+      currentPlayer:row.state.players[row.state.currentPlayer]?.name,
+      updatedAt:row.updated_at,
+    }));
+    res.json({games});
+  }catch(e){res.status(500).json({error:'Server error'});}
+});
+
+// ADMIN — delete a game
+app.delete('/admin/games/:pin',async(req,res)=>{
+  const adminPin=process.env.ADMIN_PIN;
+  if(!adminPin||req.headers['x-admin-pin']!==adminPin)return res.status(403).json({error:'Forbidden'});
+  try{
+    await deleteGame(req.params.pin);
+    res.json({ok:true});
+  }catch(e){res.status(500).json({error:'Server error'});}
+});
+
+// GET full game state for snapshot view
+app.get('/game-snapshot/:pin',async(req,res)=>{
+  try{
+    const state=await loadGame(req.params.pin);
+    if(!state)return res.status(404).json({error:'Game not found'});
+    res.json({state:publicState(state)});
   }catch(e){res.status(500).json({error:'Server error'});}
 });
 
