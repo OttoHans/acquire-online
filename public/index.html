@@ -61,6 +61,7 @@ body{color:var(--txt);font-family:'Courier Prime',monospace}
 .lp-row:last-child{border:none}
 .lp-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0}
 @media(orientation:portrait){#rotate-screen{display:flex!important}#game-screen{display:none!important}}
+@media(orientation:landscape){#rotate-screen{display:none!important}}
 .rotate-icon{font-size:3rem;animation:rot 2s ease-in-out infinite}
 @keyframes rot{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 .rotate-text{font-size:0.82rem;color:var(--muted);letter-spacing:2px;text-align:center;line-height:1.8}
@@ -70,7 +71,7 @@ body{color:var(--txt);font-family:'Courier Prime',monospace}
 .sys-bar.notif{background:#0a1a06;border-bottom:1px solid #1a3a10;color:#80b860}
 .sys-bar.ios{background:#080a1a;border-bottom:1px solid #101830;color:#8080c0;align-items:flex-start}
 .sys-bar button{background:none;border:1px solid currentColor;color:inherit;padding:1px 8px;font-size:0.65rem;font-family:'Courier Prime',monospace;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.board-col{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;border-right:1px solid var(--bdr)}
+.board-col{display:flex;flex-direction:column;flex:1;min-width:0;max-width:65%;overflow:hidden;border-right:1px solid var(--bdr)}
 .board-vp{flex:1;overflow:hidden;position:relative;touch-action:none;cursor:grab;background:var(--bg)}
 .board-vp:active{cursor:grabbing}
 .board-scaler{position:absolute;top:0;left:0;transform-origin:top left;will-change:transform}
@@ -115,7 +116,7 @@ body{color:var(--txt);font-family:'Courier Prime',monospace}
 .log-box{height:54px;overflow-y:auto;background:var(--bg);border-top:1px solid var(--bdr);padding:3px 9px;flex-shrink:0}
 .log-box p{font-size:0.67rem;color:var(--muted);line-height:1.5;margin-bottom:1px}
 .log-box p b{color:var(--txt);font-weight:400}
-.right-panel{width:210px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:var(--surf)}
+.right-panel{flex:1;min-width:280px;display:flex;flex-direction:column;overflow:hidden;background:var(--surf)}
 .rp-section{padding:7px 9px;border-bottom:1px solid var(--bdr);flex-shrink:0}
 .rp-section.grow{flex:1;overflow-y:auto}
 .sec-hdr{font-size:0.56rem;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;font-family:'Courier Prime',monospace}
@@ -537,24 +538,27 @@ function doPlace(tid){send({action:'place_tile',tile:tid});selectedTile=null;}
 
 function renderHand(){
   const el=document.getElementById('hand-tiles');el.innerHTML='';
-  if(!gameState||myIdx===null)return;
-  if(gameState.phase!=='place'){el.innerHTML='<span style="color:var(--muted);font-size:0.72rem">—</span>';return;}
+  if(!gameState||myIdx===null||!myHand.length){el.innerHTML='<span style="color:var(--muted);font-size:0.72rem">—</span>';return;}
   const board=gameState.board;
   const avail=CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)===0);
+  const isMyTurn=myIdx===gameState.currentPlayer&&gameState.phase==='place';
   myHand.forEach(tid=>{
     const span=document.createElement('span');
     span.className='htile';span.dataset.tid=tid;
     const cls=classifyTile(board,tid,avail);
-    if(cls==='unplayable')span.classList.add('unplayable');
+    if(!isMyTurn){span.style.opacity='0.5';span.style.cursor='default';}
+    else if(cls==='unplayable')span.classList.add('unplayable');
     if(selectedTile===tid)span.classList.add('selected');
     span.textContent=tid;
-    span.addEventListener('mouseenter',()=>hoverSync(tid,true));
-    span.addEventListener('mouseleave',()=>hoverSync(tid,false));
-    span.addEventListener('click',()=>onTileClick(tid));
-    span.setAttribute('draggable','true');
-    span.addEventListener('dragstart',e=>startDrag(e,tid));
-    span.addEventListener('dragend',endDrag);
-    span.addEventListener('touchstart',e=>touchDragStart(e,tid),{passive:false});
+    if(isMyTurn){
+      span.addEventListener('mouseenter',()=>hoverSync(tid,true));
+      span.addEventListener('mouseleave',()=>hoverSync(tid,false));
+      span.addEventListener('click',()=>onTileClick(tid));
+      span.setAttribute('draggable','true');
+      span.addEventListener('dragstart',e=>startDrag(e,tid));
+      span.addEventListener('dragend',endDrag);
+      span.addEventListener('touchstart',e=>touchDragStart(e,tid),{passive:false});
+    }
     el.appendChild(span);
   });
 }
