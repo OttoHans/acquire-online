@@ -305,10 +305,14 @@ wss.on('connection', ws => {
         if (!pin || !name) return;
         myPin = pin; myName = name;
 
-        // Try to load existing game
+// Try to load existing game
         const existingState = await loadGame(pin);
         if (existingState && existingState.started) {
-          // reconnect to running game
+          const isPlayer = existingState.players.some(p => p.name === name);
+          if (!isPlayer) {
+            ws.send(JSON.stringify({ type: 'error', msg: `Game ${pin} is already in progress. You can only rejoin if you were one of the original players.` }));
+            return;
+          }
           getRoomClients(pin).add({ ws, name });
           ws.send(JSON.stringify({ type: 'state', state: publicState(existingState) }));
           sendPrivateHand(pin, existingState, name);
@@ -318,15 +322,7 @@ wss.on('connection', ws => {
         // Lobby mode
         if (!lobbies.has(pin)) lobbies.set(pin, { players: [], open: true });
         const lobby = lobbies.get(pin);
-        if (!lobby.open) { ws.send(JSON.stringify({ type: 'error', msg: 'Game already started.' })); return; }
-        if (!lobby.players.find(p => p.name === name)) {
-          if (lobby.players.length >= 6) { ws.send(JSON.stringify({ type: 'error', msg: 'Room full.' })); return; }
-          lobby.players.push({ name });
-        }
-        getRoomClients(pin).add({ ws, name });
-        broadcastToRoom(pin, { type: 'lobby', players: lobby.players.map(p => p.name), open: lobby.open, pin });
-        return;
-      }
+        if (!lobby.open) { ws.send(JSON.stringify({ type: 'error', msg: `Game ${pin} has already started. You can only rejoin as an original player.` })); return; }
 
       if (msg.action === 'start_game') {
         if (!myPin) return;
