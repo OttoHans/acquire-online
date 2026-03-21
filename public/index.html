@@ -60,8 +60,7 @@ body{color:var(--txt);font-family:'Courier Prime',monospace}
 .lp-row{display:flex;align-items:center;gap:0.6rem;padding:0.42rem 0;border-bottom:1px solid var(--bdr);font-size:0.82rem}
 .lp-row:last-child{border:none}
 .lp-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0}
-#rotate-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:1rem}
-#rotate-screen.show{display:flex}
+@media(orientation:portrait){#rotate-screen{display:flex!important}#game-screen{display:none!important}}
 .rotate-icon{font-size:3rem;animation:rot 2s ease-in-out infinite}
 @keyframes rot{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
 .rotate-text{font-size:0.82rem;color:var(--muted);letter-spacing:2px;text-align:center;line-height:1.8}
@@ -195,8 +194,16 @@ body{color:var(--txt);font-family:'Courier Prime',monospace}
   <div class="bonus-rows" id="bonus-rows"></div>
 </div>
 <div id="rotate-screen">
-  <div class="rotate-icon">⟳</div>
-  <div class="rotate-text">ROTATE YOUR DEVICE<br><span style="font-size:0.72rem;opacity:0.6">Acquire plays best in landscape</span></div>
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation:rot 2s ease-in-out infinite">
+    <rect x="14" y="8" width="28" height="44" rx="4" stroke="#c9a84c" stroke-width="2.5" fill="none"/>
+    <circle cx="28" cy="46" r="2" fill="#c9a84c"/>
+    <path d="M38 20 Q52 20 52 34 Q52 44 44 48" stroke="#c9a84c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M44 43 L44 49 L50 49" stroke="#c9a84c" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div style="font-size:0.9rem;color:#c9a84c;letter-spacing:4px;text-align:center;line-height:2;font-family:'Courier Prime',monospace">
+    ROTATE YOUR DEVICE<br>
+    <span style="font-size:0.72rem;color:#8a7258;letter-spacing:2px">Acquire plays best in landscape</span>
+  </div>
 </div>
 
 <!-- ENTRY -->
