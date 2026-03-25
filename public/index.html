@@ -177,10 +177,10 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 
 /* Tiles bar */
 .tiles-cash-bar{display:flex;align-items:center;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:52px}
-.tiles-label{font-size:0.56rem;letter-spacing:2px;color:var(--muted);padding:0 8px;text-transform:uppercase;white-space:nowrap;border-right:1px solid var(--bdr);align-self:stretch;display:flex;align-items:center}
+.tiles-label{font-size:0.56rem;letter-spacing:2px;color:var(--muted);padding:0 5px;text-transform:uppercase;white-space:normal;text-align:center;line-height:1.4;width:36px;flex-shrink:0;border-right:1px solid var(--bdr);align-self:stretch;display:flex;align-items:center;justify-content:center}
 .hand-tiles{display:flex;align-items:center;gap:4px;padding:5px 7px;flex:1;overflow:hidden;flex-wrap:nowrap}
 .htile{background:var(--surf3);border:1px solid var(--gold-dim);color:var(--gold);font-family:'Courier Prime',monospace;font-size:0.78rem;cursor:grab;user-select:none;transition:all 0.12s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0}
-.inline-cash{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px;border-left:1px solid var(--bdr);align-self:stretch;flex-shrink:0;min-width:80px}
+.inline-cash{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;border-left:1px solid var(--bdr);align-self:stretch;flex-shrink:0;min-width:100px}
 .inline-cash-label{font-size:0.52rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px}
 .inline-cash-val{font-size:0.88rem;color:var(--gold);font-family:'Playfair Display',serif}
 .htile:hover,.htile.hovered{background:#2a1e00;border-color:var(--gold);box-shadow:0 0 6px rgba(200,160,60,0.25);transform:translateY(-2px)}
@@ -190,16 +190,16 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .htile.perm-unplayable{border-color:#3a1010;color:#5a2020;cursor:not-allowed;opacity:0.3;text-decoration:line-through}
 
 /* Action strip */
-.action-strip{display:flex;align-items:center;gap:6px;padding:5px 9px;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:34px}
-.amsg{font-size:0.73rem;color:var(--txt);flex:1;line-height:1.4}
-.abtn{background:none;border:1px solid var(--faint);color:var(--muted);padding:3px 9px;font-size:0.68rem;letter-spacing:1px;cursor:pointer;white-space:nowrap;transition:all 0.12s}
+.action-strip{display:flex;align-items:center;gap:6px;padding:3px 9px;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:26px}
+.amsg{font-size:0.68rem;color:var(--txt);flex:1;line-height:1.3}
+.abtn{background:none;border:1px solid var(--faint);color:var(--muted);padding:2px 8px;font-size:0.65rem;letter-spacing:1px;cursor:pointer;white-space:nowrap;transition:all 0.12s}
 .abtn:hover{border-color:var(--gold);color:var(--gold)}
 .abtn.pri{border-color:var(--gold2);color:var(--gold);background:#150f00}
 .abtn.danger{border-color:#603020;color:#a05030}
 .abtn.danger:hover{border-color:#c04020;color:#e06030}
 
 /* Log */
-.log-box{height:54px;overflow-y:auto;background:var(--bg);border-top:1px solid var(--bdr);padding:3px 9px;flex-shrink:0}
+.log-box{height:72px;overflow-y:auto;background:var(--bg);border-top:1px solid var(--bdr);padding:3px 9px;flex-shrink:0}
 .log-box p{font-size:0.67rem;color:var(--muted);line-height:1.5;margin-bottom:1px}
 .log-box p b{color:var(--txt);font-weight:400}
 
@@ -415,6 +415,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
   <div style="font-size:0.9rem;color:#c9a84c;letter-spacing:4px;text-align:center;line-height:2;font-family:'Courier Prime',monospace">
     ROTATE YOUR DEVICE<br><span style="font-size:0.72rem;color:#8a7258;letter-spacing:2px">Acquire plays best in landscape</span>
   </div>
+  <button onclick="toggleFullscreen()" style="background:none;border:1px solid #4a3c28;color:#8a7258;padding:6px 18px;font-size:0.65rem;letter-spacing:2px;cursor:pointer;font-family:'Courier Prime',monospace;">⛶ FULLSCREEN</button>
 </div>
 
 <!-- NAME SCREEN -->
@@ -428,6 +429,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     </div>
     <button class="btn-cta" id="name-continue-btn">CONTINUE</button>
     <div class="status-msg" id="name-status"></div>
+    <button onclick="toggleFullscreen()" style="margin-top:0.8rem;width:100%;background:none;border:1px solid var(--faint);color:var(--muted);padding:5px;font-size:0.65rem;letter-spacing:2px;cursor:pointer;">⛶ FULLSCREEN</button>
   </div>
 </div>
 
@@ -439,6 +441,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <div class="dash-actions">
       <button class="dash-btn" id="join-game-btn">JOIN</button>
       <button class="dash-btn pri" id="create-game-btn">+ NEW GAME</button>
+      <button class="dash-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
     </div>
   </div>
   <div class="your-turn-bar" id="your-turn-bar"></div>
@@ -499,7 +502,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
         </div>
       </div>
       <div class="tiles-cash-bar">
-        <div class="tiles-label">Your Tiles</div>
+        <div class="tiles-label">Your<br>Tiles</div>
         <div class="hand-tiles" id="hand-tiles"></div>
         <div class="inline-cash">
           <div class="inline-cash-label">YOUR CASH</div>
@@ -530,7 +533,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
         <button class="ref-card-btn" onclick="openRefCard()">REF CARD</button>
       </div>
       <table class="chain-tbl">
-        <thead><tr><th>Chain</th><th>Size</th><th>Price</th><th>Left</th></tr></thead>
+        <thead><tr><th>Chain</th><th>Size</th><th>Price</th><th>Left</th><th>Maj.</th><th>Min.</th></tr></thead>
         <tbody id="chain-tbody"></tbody>
       </table>
     </div>
@@ -548,6 +551,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <p style="font-size:0.68rem;color:var(--muted);margin-bottom:0.3rem;letter-spacing:2px">FINAL SCORES</p>
     <table class="scores-tbl"><thead><tr><th>#</th><th>Player</th><th>Net Worth</th></tr></thead><tbody id="scores-body"></tbody></table>
     <button class="btn-cta" onclick="goToDashboard()">BACK TO GAMES</button>
+    <button onclick="toggleFullscreen()" style="margin-top:0.5rem;width:100%;background:none;border:1px solid var(--faint);color:var(--muted);padding:5px;font-size:0.65rem;letter-spacing:2px;cursor:pointer;">⛶ FULLSCREEN</button>
   </div>
 </div>
 
@@ -556,7 +560,10 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
   <div class="snapshot-wrap">
     <div class="snapshot-header">
       <div class="snapshot-title" id="snap-title">GAME OVER</div>
-      <button class="snapshot-back" onclick="goToDashboard()">← GAMES</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="toggleFullscreen()" class="snapshot-back">⛶</button>
+        <button class="snapshot-back" onclick="goToDashboard()">← GAMES</button>
+      </div>
     </div>
     <div class="snapshot-board"><div class="snap-grid" id="snap-grid"></div></div>
     <div class="snapshot-section">
@@ -1055,13 +1062,17 @@ function renderChains(){
   CHAINS.forEach(c=>{
     const sz=chainSize(gameState.board,c.id),active=sz>0;
     const price=active?sharePrice(c.id,sz):0,left=gameState.stocks[c.id];
+    const maj=active?price*10:0,min=active?price*5:0;
     const safe=sz>=11;
     const tr=document.createElement('tr');
     tr.className=(active?'':'inactive')+(safe?' safe-chain':'');
+    const fmtK=n=>n>=1000?'$'+(n/1000).toFixed(0)+'k':'$'+n;
     tr.innerHTML=`<td><div class="chain-name-cell"><div class="chain-swatch" style="background:${c.color};opacity:${active?1:0.25}"></div><span class="chain-name-text" style="font-size:0.7rem;color:${active?c.color:'var(--muted)'}">${c.name}</span></div></td>
       <td style="color:${active?'var(--txt)':'var(--muted)'}">${active?sz:'—'}</td>
       <td style="color:${active?'var(--gold)':'var(--muted)'}">${active?'$'+price.toLocaleString():'—'}</td>
-      <td style="color:${left>0?'var(--txt)':'var(--muted)'}">${left}</td>`;
+      <td style="color:${left>0?'var(--txt)':'var(--muted)'}">${left}</td>
+      <td style="color:${active?'var(--txt)':'var(--muted)'}">${active?fmtK(maj):'—'}</td>
+      <td style="color:${active?'var(--txt)':'var(--muted)'}">${active?fmtK(min):'—'}</td>`;
     tbody.appendChild(tr);
   });
 }
