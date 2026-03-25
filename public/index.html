@@ -21,7 +21,7 @@
   /* Chain colors */
   --tower:#c8a800;    --tower-bg:#2a2400;
   --luxor:#a01818;    --luxor-bg:#300808;
-  --worldwide:#7a5c38;--worldwide-bg:#2a1e10;
+  --worldwide:#c8622a;--worldwide-bg:#2a1408;
   --festival:#2e7d32; --festival-bg:#0a2010;
   --imperial:#c2185b; --imperial-bg:#380818;
   --american:#1565c0; --american-bg:#081830;
@@ -59,7 +59,6 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .dash-btn{background:none;border:1px solid var(--faint);color:var(--muted);padding:4px 10px;font-size:0.7rem;letter-spacing:1px;transition:all 0.12s}
 .dash-btn:hover{border-color:var(--gold);color:var(--gold)}
 .dash-btn.pri{border-color:var(--gold2);color:var(--gold);background:#150f00}
-/* Your-turn summary bar */
 .your-turn-bar{background:#1a1500;border-bottom:1px solid var(--gold-dim);padding:5px 14px;font-size:0.72rem;color:var(--gold);flex-shrink:0;display:none}
 .your-turn-bar.show{display:block}
 .dash-body{flex:1;overflow-y:auto;padding:12px 14px}
@@ -142,14 +141,21 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .sys-bar.notif{background:#0a1a06;border-bottom:1px solid #1a3a10;color:#80b860}
 .sys-bar.ios{background:#080a1a;border-bottom:1px solid #101830;color:#8080c0;align-items:flex-start}
 .sys-bar button{background:none;border:1px solid currentColor;color:inherit;padding:1px 8px;font-size:0.65rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.board-col{display:flex;flex-direction:column;width:55%;flex-shrink:0;overflow:hidden;border-right:1px solid var(--bdr)}
+
+/* ── BOARD COLUMN: zoom bar now vertical on left ── */
+.board-col{display:flex;flex-direction:row;width:55%;flex-shrink:0;overflow:hidden;border-right:1px solid var(--bdr)}
+.zoom-bar-v{display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 4px;background:var(--surf);border-right:1px solid var(--bdr);flex-shrink:0}
+.zbtn{background:none;border:1px solid var(--faint);color:var(--muted);width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;transition:all 0.1s}
+.zbtn:hover{border-color:var(--gold);color:var(--gold)}
+.zlbl{font-size:0.55rem;color:var(--muted);min-width:28px;text-align:center;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:1px}
+.board-inner{display:flex;flex-direction:column;flex:1;overflow:hidden}
 .board-vp{flex:1;overflow:hidden;position:relative;touch-action:none;cursor:grab;background:var(--bg)}
 .board-vp:active{cursor:grabbing}
 .board-scaler{position:absolute;top:0;left:0;transform-origin:top left;will-change:transform}
 .board-grid{display:grid;gap:3px;padding:10px}
+
 /* Tile base */
 .tile{aspect-ratio:1;background:var(--surf2);border:1px solid var(--faint);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'Courier Prime',monospace;color:var(--muted);cursor:default;user-select:none;position:relative;transition:background 0.12s,border-color 0.12s}
-/* Chain tile colors */
 .tile.tower      {background:var(--tower-bg);border-color:var(--tower);color:rgba(255,255,255,0.65)}
 .tile.luxor      {background:var(--luxor-bg);border-color:var(--luxor);color:rgba(255,255,255,0.65)}
 .tile.worldwide  {background:var(--worldwide-bg);border-color:var(--worldwide);color:rgba(255,255,255,0.65)}
@@ -158,7 +164,6 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .tile.american   {background:var(--american-bg);border-color:var(--american);color:rgba(255,255,255,0.65)}
 .tile.continental{background:var(--continental-bg);border-color:var(--continental);color:rgba(255,255,255,0.65)}
 .tile.neutral-placed{background:var(--surf3);border-color:var(--muted);color:rgba(255,255,255,0.5)}
-/* In-hand tiles */
 .tile.in-hand{border-color:var(--gold-dim);color:var(--gold);cursor:pointer;transition:background 0.1s,border-color 0.1s,transform 0.1s}
 .tile.in-hand:hover,.tile.in-hand.hovered{background:#2a1e00;border-color:var(--gold);transform:scale(1.1);z-index:2;box-shadow:0 0 10px rgba(200,160,60,0.35)}
 .tile.in-hand.selected{background:#352400;border-color:#fff;color:#fff;outline:2px solid rgba(255,255,255,0.5);outline-offset:1px;z-index:3}
@@ -169,28 +174,21 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 @keyframes flood-in{0%{transform:scale(0.6);opacity:0}100%{transform:scale(1);opacity:1}}
 .tile.merging{animation:pulse-abs 0.45s ease-in-out 3}
 .tile.flood-new{animation:flood-in 0.3s ease-out forwards}
-/* Zoom bar */
-.zoom-bar{display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--surf);border-bottom:1px solid var(--bdr);flex-shrink:0}
-.zbtn{background:none;border:1px solid var(--faint);color:var(--muted);width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;transition:all 0.1s}
-.zbtn:hover{border-color:var(--gold);color:var(--gold)}
-.zlbl{font-size:0.65rem;color:var(--muted);min-width:34px;text-align:center}
+
 /* Tiles bar */
 .tiles-cash-bar{display:flex;align-items:center;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:52px}
 .tiles-label{font-size:0.56rem;letter-spacing:2px;color:var(--muted);padding:0 8px;text-transform:uppercase;white-space:nowrap;border-right:1px solid var(--bdr);align-self:stretch;display:flex;align-items:center}
 .hand-tiles{display:flex;align-items:center;gap:4px;padding:5px 7px;flex:1;overflow:hidden;flex-wrap:nowrap}
-.htile{background:var(--surf3);border:1px solid var(--gold-dim);color:var(--gold);font-family:'Courier Prime',monospace;font-size:0.78rem;cursor:grab;user-select:none;transition:all 0.12s;white-space:nowrap;
-  /* Square tiles: measure widest possible tile text (10E) and use that as both dimensions */
-  display:inline-flex;align-items:center;justify-content:center;
-  width:36px;height:36px;flex-shrink:0}
+.htile{background:var(--surf3);border:1px solid var(--gold-dim);color:var(--gold);font-family:'Courier Prime',monospace;font-size:0.78rem;cursor:grab;user-select:none;transition:all 0.12s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0}
 .inline-cash{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px;border-left:1px solid var(--bdr);align-self:stretch;flex-shrink:0;min-width:80px}
 .inline-cash-label{font-size:0.52rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px}
 .inline-cash-val{font-size:0.88rem;color:var(--gold);font-family:'Playfair Display',serif}
-/* htile defined above */
 .htile:hover,.htile.hovered{background:#2a1e00;border-color:var(--gold);box-shadow:0 0 6px rgba(200,160,60,0.25);transform:translateY(-2px)}
 .htile.selected{background:#352400;border-color:#fff;color:#fff;transform:translateY(-3px);box-shadow:0 0 10px rgba(255,255,255,0.2)}
 .htile.dragging{opacity:0.35;cursor:grabbing}
 .htile.temp-unplayable{border-color:#5a4010;color:#6a5020;cursor:not-allowed;opacity:0.5}
 .htile.perm-unplayable{border-color:#3a1010;color:#5a2020;cursor:not-allowed;opacity:0.3;text-decoration:line-through}
+
 /* Action strip */
 .action-strip{display:flex;align-items:center;gap:6px;padding:5px 9px;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:34px}
 .amsg{font-size:0.73rem;color:var(--txt);flex:1;line-height:1.4}
@@ -199,10 +197,12 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .abtn.pri{border-color:var(--gold2);color:var(--gold);background:#150f00}
 .abtn.danger{border-color:#603020;color:#a05030}
 .abtn.danger:hover{border-color:#c04020;color:#e06030}
+
 /* Log */
 .log-box{height:54px;overflow-y:auto;background:var(--bg);border-top:1px solid var(--bdr);padding:3px 9px;flex-shrink:0}
 .log-box p{font-size:0.67rem;color:var(--muted);line-height:1.5;margin-bottom:1px}
 .log-box p b{color:var(--txt);font-weight:400}
+
 /* Right panel */
 .right-panel{flex:1;min-width:280px;display:flex;flex-direction:column;overflow:hidden;background:var(--surf)}
 .rp-section{padding:7px 9px;border-bottom:1px solid var(--bdr);flex-shrink:0}
@@ -211,6 +211,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .sec-hdr{font-size:0.56rem;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
 .back-btn{background:none;border:1px solid var(--faint);color:var(--muted);padding:2px 8px;font-size:0.62rem;letter-spacing:1px;cursor:pointer;transition:all 0.12s}
 .back-btn:hover{border-color:var(--gold);color:var(--gold)}
+
 /* Chain table */
 .chain-tbl{width:100%;border-collapse:collapse}
 .chain-tbl th{font-size:0.54rem;letter-spacing:1px;color:var(--muted);font-weight:400;padding:0 3px 3px;text-align:right;border-bottom:1px solid var(--bdr)}
@@ -221,21 +222,23 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .chain-tbl tr.safe-chain .chain-name-text::after{content:' 🛡';font-size:0.6rem}
 .chain-name-cell{display:flex;align-items:center;gap:4px}
 .chain-swatch{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-/* Player cards */
-.pcard{background:var(--surf2);border:1px solid var(--bdr);border-left:2px solid transparent;padding:5px 7px 6px;margin-bottom:3px;position:relative}
-.pcard.active-turn{border-color:var(--bdr);border-left:3px solid var(--gold)}
+
+/* ── PLAYER CARDS (redesigned) ── */
+.pcard{background:var(--surf2);border:1px solid var(--bdr);border-left:2px solid transparent;padding:4px 7px;margin-bottom:3px;position:relative;display:flex;align-items:center;gap:6px}
+.pcard.active-turn{border-left:3px solid var(--gold)}
 .pcard.active-turn .p-name::before{content:'▶ ';color:var(--gold);font-size:0.62rem}
 .pcard.is-me{border-left-color:var(--gold-dim)}
 .pcard.is-me.active-turn{border-left-color:var(--gold)}
-.p-name{font-size:0.75rem;font-weight:700;margin-bottom:2px}
-.p-cash{font-size:0.68rem;color:var(--gold)}
-.p-net{font-size:0.62rem;color:var(--muted)}
-/* Stock grid — evenly spaced columns across the full card width */
-.p-stocks{display:grid;gap:3px;margin-top:5px}
-.p-stk-col{display:flex;flex-direction:column;align-items:center;gap:1px}
-.p-stk-badge{font-size:0.6rem;padding:2px 4px;text-align:center;width:100%}
-.p-stk-val{font-size:0.58rem;color:var(--muted);text-align:center}
-/* worth-row removed — cash now inline with tiles */
+/* Left side: name + net worth */
+.pcard-left{display:flex;flex-direction:column;justify-content:center;min-width:64px;max-width:80px;flex-shrink:0}
+.p-name{font-size:0.72rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px}
+.p-net{font-size:0.64rem;color:var(--gold)}
+.p-net-hidden{font-size:0.64rem;color:var(--muted)}
+/* Right side: chain columns */
+.pcard-stocks{display:flex;gap:2px;flex:1;justify-content:flex-end}
+.p-stk-col{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:22px}
+.p-stk-badge{font-size:0.58rem;padding:1px 3px;text-align:center;width:100%;border-radius:1px}
+.p-stk-val{font-size:0.54rem;color:var(--muted);text-align:center;min-height:0.7rem}
 
 /* ── CHAIN INFO POPUP ── */
 .chain-popup{position:fixed;background:var(--surf);border:1px solid var(--bdr2);padding:10px 12px;z-index:60;max-width:200px;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.6)}
@@ -295,6 +298,8 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .spr-meta{font-size:0.67rem;color:var(--muted);text-align:right;min-width:76px}
 .merge-sec{background:var(--surf2);border:1px solid var(--bdr);padding:0.65rem;margin-bottom:0.55rem}
 .merge-sec-hdr{font-size:0.72rem;font-weight:700;margin-bottom:0.55rem}
+/* Queue progress indicator */
+.merge-queue-info{font-size:0.65rem;color:var(--muted);text-align:center;margin-bottom:0.6rem;padding:4px 8px;background:var(--surf2);border:1px solid var(--bdr)}
 
 /* ── SNAPSHOT ── */
 #snapshot-screen{align-items:center;justify-content:flex-start;background:var(--bg);overflow-y:auto}
@@ -322,7 +327,6 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .snap-btn.rematch{border-color:var(--gold2);color:var(--gold);background:#150f00}
 .snap-btn.dismiss{border-color:#603020;color:#a05030}
 .snap-btn.dismiss:hover{border-color:#c04020;color:#e06030}
-/* End stats table */
 .end-stats-tbl{width:100%;border-collapse:collapse;font-size:0.72rem;margin-bottom:0.5rem}
 .end-stats-tbl th{color:var(--muted);font-weight:400;padding:3px 4px;border-bottom:1px solid var(--bdr);text-align:right;font-size:0.6rem;letter-spacing:1px}
 .end-stats-tbl th:first-child{text-align:left}
@@ -372,7 +376,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 <body>
 <div id="drag-ghost"></div>
 
-<!-- BONUS BANNER (no overlay, swipe/tap to dismiss) -->
+<!-- BONUS BANNER -->
 <div class="bonus-banner" id="bonus-banner">
   <div class="bonus-title">SHAREHOLDER BONUSES</div>
   <div class="bonus-rows" id="bonus-rows"></div>
@@ -480,31 +484,34 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <button id="ios-dismiss-btn">OK</button>
   </div>
   <div class="board-col">
-    <div class="zoom-bar">
-      <button class="zbtn" id="zoom-out">−</button>
+    <!-- Vertical zoom bar on the left -->
+    <div class="zoom-bar-v">
+      <button class="zbtn" id="zoom-in" title="Zoom in">+</button>
       <span class="zlbl" id="zoom-lbl">100%</span>
-      <button class="zbtn" id="zoom-in">+</button>
-      <button class="zbtn" id="zoom-fit" style="width:auto;padding:0 7px;font-size:0.65rem;letter-spacing:1px">FIT</button>
-      <button class="zbtn" onclick="toggleFullscreen()" style="width:auto;padding:0 7px;font-size:0.65rem;margin-left:4px">⛶</button>
+      <button class="zbtn" id="zoom-out" title="Zoom out">−</button>
+      <button class="zbtn" id="zoom-fit" style="font-size:0.55rem;width:26px;height:26px;padding:0" title="Fit">FIT</button>
+      <button class="zbtn" onclick="toggleFullscreen()" style="font-size:0.7rem" title="Fullscreen">⛶</button>
     </div>
-    <div class="board-vp" id="board-vp">
-      <div class="board-scaler" id="board-scaler">
-        <div class="board-grid" id="board-grid"></div>
+    <div class="board-inner">
+      <div class="board-vp" id="board-vp">
+        <div class="board-scaler" id="board-scaler">
+          <div class="board-grid" id="board-grid"></div>
+        </div>
       </div>
-    </div>
-    <div class="tiles-cash-bar">
-      <div class="tiles-label">Your Tiles</div>
-      <div class="hand-tiles" id="hand-tiles"></div>
-      <div class="inline-cash">
-        <div class="inline-cash-label">YOUR CASH</div>
-        <div class="inline-cash-val" id="w-cash">$0</div>
+      <div class="tiles-cash-bar">
+        <div class="tiles-label">Your Tiles</div>
+        <div class="hand-tiles" id="hand-tiles"></div>
+        <div class="inline-cash">
+          <div class="inline-cash-label">YOUR CASH</div>
+          <div class="inline-cash-val" id="w-cash">$0</div>
+        </div>
       </div>
+      <div class="action-strip">
+        <div class="amsg" id="amsg">—</div>
+        <div id="abtns" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      <div class="log-box" id="log-box"></div>
     </div>
-    <div class="action-strip">
-      <div class="amsg" id="amsg">—</div>
-      <div id="abtns" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-    </div>
-    <div class="log-box" id="log-box"></div>
   </div>
   <div class="right-panel">
     <div class="rp-section rp-top-bar" style="background:var(--bg)">
@@ -610,6 +617,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
   <div id="found-list"></div>
 </div></div>
 
+<!-- BUY OVERLAY — close button preserves selections -->
 <div class="overlay" id="buy-overlay"><div class="modal">
   <h2>BUY STOCK</h2>
   <div class="modal-sub">Purchase up to 3 shares total. Cash: <span id="buy-cash-disp" style="color:var(--gold)">$0</span></div>
@@ -618,14 +626,17 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <span style="color:var(--muted)">Total cost</span><span style="color:var(--gold)" id="buy-total">$0</span>
   </div>
   <div class="modal-footer">
+    <button id="buy-close">CLOSE</button>
     <button id="buy-skip">SKIP</button>
     <button class="confirm" id="buy-confirm">CONFIRM PURCHASE</button>
   </div>
 </div></div>
 
+<!-- MERGE OVERLAY — one chain/player at a time -->
 <div class="overlay" id="merge-overlay"><div class="modal">
   <h2>MERGER!</h2>
   <div id="merge-info" class="modal-sub"></div>
+  <div id="merge-queue-info" class="merge-queue-info"></div>
   <div id="merge-actions"></div>
   <div class="modal-footer"><button class="confirm" id="merge-confirm">CONFIRM</button></div>
 </div></div>
@@ -653,7 +664,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 const CHAINS=[
   {id:'tower',       name:'Tower',       tier:1,color:'#c8a800'},
   {id:'luxor',       name:'Luxor',       tier:1,color:'#a01818'},
-  {id:'worldwide',   name:'Worldwide',   tier:2,color:'#7a5c38'},
+  {id:'worldwide',   name:'Worldwide',   tier:2,color:'#c8622a'},
   {id:'festival',    name:'Festival',    tier:2,color:'#2e7d32'},
   {id:'imperial',    name:'Imperial',    tier:2,color:'#c2185b'},
   {id:'american',    name:'American',    tier:3,color:'#1565c0'},
@@ -708,7 +719,7 @@ function netWorth(p,board){
 let myName=null,myPin=null,myIdx=null;
 let ws=null,gameState=null,myHand=[],myUnplayable=[],selectedTile=null;
 let createMode='beginner';
-let buyQtys={},mergeDecisions={};
+let buyQtys={};
 let zoom=1,panX=0,panY=0,isPanning=false,panStart={x:0,y:0};
 let lastPinchDist=0,tc1=null,tc2=null;
 let dragTile=null,touchDragActive=false,touchDragTile=null;
@@ -775,7 +786,6 @@ function buildGameCard(g){
     <div class="card-players">${g.players.join(' · ')}</div>
     <div class="card-turn${g.isMyTurn&&!g.ended?' my-turn-text':''}"><b>${turnText}</b>${!g.ended&&g.bagCount!==undefined?` · ${g.bagCount} tiles left`:''}</div>
     <div class="card-financials">
-      <div class="card-fin-item"><span class="card-fin-label">Cash</span><span class="card-fin-val">$${g.myCash.toLocaleString()}</span></div>
       <div class="card-fin-item"><span class="card-fin-label">Net Worth</span><span class="card-fin-val">$${g.myNet.toLocaleString()}</span></div>
     </div>
     <div class="card-stocks">${stocksHtml}</div>
@@ -873,7 +883,6 @@ document.getElementById('lobby-name-confirm-btn').addEventListener('click',()=>{
   document.getElementById('lobby-rename-area').style.display='none';
   document.getElementById('lobby-status').textContent='Name updated to '+newName;
   setTimeout(()=>document.getElementById('lobby-status').textContent='',2500);
-  // Rejoin lobby with new name
   if(myPin)connectAndJoin(myPin,newName);
 });
 document.getElementById('lobby-name-input').addEventListener('keydown',e=>{
@@ -890,12 +899,15 @@ function onState(s){
   document.getElementById('h-bag').textContent=s.bagCount||0;
   document.getElementById('rp-game-name').textContent=s.gameName||'ACQUIRE';
   renderBoard();renderChains();renderPlayers();renderLog();renderActionArea();renderWorth();
+
   if(s.phase==='found_pending'&&myIdx===s.currentPlayer)openFoundModal();
-  else if(s.phase==='merge_pending'&&myIdx!==null){
+  else if(s.phase==='merge_pending'){
     const pm=s.pendingMerge;
-    if(pm?.waitingFor.some(e=>e.pi===myIdx&&!e.confirmed))openMergeModal();
+    // Only open merge modal if I am the current head of the queue
+    if(pm&&pm.currentDecision&&pm.currentDecision.pi===myIdx){
+      openMergeModal();
+    }
   }
-  // Buy modal: do NOT auto-open — player can review board first, then tap BUY STOCK
 }
 
 document.getElementById('game-back-btn').addEventListener('click',()=>goToDashboard());
@@ -924,9 +936,6 @@ function renderBoard(){
   const grid=document.getElementById('board-grid');grid.innerHTML='';
   const board=gameState.board;
   const phase=gameState.phase;
-  // Chain tiles always show popup on tap (any phase, any player)
-  // In-hand tile placement only available when it's your turn in place phase
-  const boardInteractive=true;
   const isMyTurn=myIdx!==null&&myIdx===gameState.currentPlayer&&phase==='place';
   const avail=CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)===0);
 
@@ -938,8 +947,7 @@ function renderBoard(){
       const val=board[tid];
       if(val){
         div.classList.add(val==='neutral'?'neutral-placed':val);div.textContent=col+row;
-        // Tap chain tile to show info popup
-        if(val!=='neutral'&&boardInteractive){
+        if(val!=='neutral'){
           div.style.cursor='pointer';
           div.addEventListener('click',e=>{e.stopPropagation();showChainPopup(val,e);});
         }
@@ -999,7 +1007,6 @@ function showChainPopup(chainId,e){
   document.getElementById('cpop-safe').style.color=safe?'var(--gold)':'var(--muted)';
   const popup=document.getElementById('chain-popup');
   popup.style.display='block';
-  // Position near tap/click
   const vpW=window.innerWidth,vpH=window.innerHeight;
   let x=e.clientX+10,y=e.clientY+10;
   if(x+210>vpW)x=e.clientX-220;
@@ -1051,7 +1058,7 @@ function renderChains(){
     const safe=sz>=11;
     const tr=document.createElement('tr');
     tr.className=(active?'':'inactive')+(safe?' safe-chain':'');
-    tr.innerHTML=`<td><div class="chain-name-cell"><div class="chain-swatch" style="background:${c.color};opacity:${active?1:0.25}"></div><span style="font-size:0.7rem;color:${active?c.color:'var(--muted)'}">${c.name}</span></div></td>
+    tr.innerHTML=`<td><div class="chain-name-cell"><div class="chain-swatch" style="background:${c.color};opacity:${active?1:0.25}"></div><span class="chain-name-text" style="font-size:0.7rem;color:${active?c.color:'var(--muted)'}">${c.name}</span></div></td>
       <td style="color:${active?'var(--txt)':'var(--muted)'}">${active?sz:'—'}</td>
       <td style="color:${active?'var(--gold)':'var(--muted)'}">${active?'$'+price.toLocaleString():'—'}</td>
       <td style="color:${left>0?'var(--txt)':'var(--muted)'}">${left}</td>`;
@@ -1059,16 +1066,13 @@ function renderChains(){
   });
 }
 
-// ── PLAYERS PANEL ──
+// ── PLAYERS PANEL (redesigned) ──
 function renderPlayers(){
   if(!gameState)return;
   const el=document.getElementById('players-panel');el.innerHTML='';
   const adv=gameState.advancedMode;
   const board=gameState.board;
-  // Always all 7 chains in fixed order matching the chains table
-  const colDefs=CHAINS.map(()=>'1fr').join(' ');
 
-  // Sort so MY card is always first, then others in original order
   const sortedIndices=[...Array(gameState.players.length).keys()]
     .sort((a,b)=>{
       if(a===myIdx)return -1;
@@ -1080,48 +1084,66 @@ function renderPlayers(){
     const p=gameState.players[i];
     const isMe=i===myIdx;
     const isActive=i===gameState.currentPlayer;
-    const showCash=!adv||isMe;
-    const net=netWorth(p,board);
     const d=document.createElement('div');
     d.className='pcard'+(isActive?' active-turn':'')+(isMe?' is-me':'');
 
-    // All 7 chain columns always present, faded when empty
+    // Left side: name + net worth
+    const net=netWorth(p,board);
+    const showNet=!adv||isMe;
+    const leftHtml=`
+      <div class="pcard-left">
+        <div class="p-name">${p.name}${isMe?' <span style="color:var(--muted);font-size:0.56rem">(you)</span>':''}</div>
+        ${showNet
+          ?`<div class="p-net">$${net.toLocaleString()}</div>`
+          :`<div class="p-net-hidden">···</div>`}
+      </div>`;
+
+    // Right side: fixed 7 chain columns
     const stockCols=CHAINS.map(ch=>{
       const qty=p.stocks[ch.id];
       const sz=chainSize(board,ch.id);
       const price=sz>0?sharePrice(ch.id,sz):0;
-      const isEmpty=qty===0;
-      if(isEmpty){
+      const hasShares=qty>0;
+
+      if(!hasShares){
+        // Blank — no badge, no value
         return`<div class="p-stk-col">
-          <div class="p-stk-badge" style="color:var(--faint);border:1px solid transparent">${ch.name[0]}</div>
-          <div class="p-stk-val" style="color:var(--faint)">—</div>
+          <div class="p-stk-badge" style="border:1px solid transparent;color:transparent">—</div>
+          <div class="p-stk-val"></div>
         </div>`;
       }
-      const showQty=!adv||isMe;
-      const val=qty*price;
-      if(showQty){
+
+      if(isMe){
+        // Full detail for own card always
+        const val=qty*price;
         return`<div class="p-stk-col">
-          <div class="p-stk-badge" style="background:${ch.color}18;color:${ch.color};border:1px solid ${ch.color}30">${ch.name[0]}:${qty}</div>
-          <div class="p-stk-val">${price>0?'$'+val.toLocaleString():'—'}</div>
-        </div>`;
-      }else{
-        return`<div class="p-stk-col">
-          <div class="p-stk-badge" style="background:${ch.color}18;color:${ch.color};border:1px solid ${ch.color}30">${ch.name[0]}</div>
-          <div class="p-stk-val">?</div>
+          <div class="p-stk-badge" style="background:${ch.color}20;color:${ch.color};border:1px solid ${ch.color}40">${ch.name[0]}:${qty}</div>
+          <div class="p-stk-val">${price>0?'$'+(val/1000).toFixed(1).replace('.0','')+'k':'—'}</div>
         </div>`;
       }
+
+      if(!adv){
+        // Beginner: full detail for everyone
+        const val=qty*price;
+        return`<div class="p-stk-col">
+          <div class="p-stk-badge" style="background:${ch.color}20;color:${ch.color};border:1px solid ${ch.color}40">${ch.name[0]}:${qty}</div>
+          <div class="p-stk-val">${price>0?'$'+(val/1000).toFixed(1).replace('.0','')+'k':'—'}</div>
+        </div>`;
+      }
+
+      // Advanced mode, other player: just show colored initial (they hold something)
+      return`<div class="p-stk-col">
+        <div class="p-stk-badge" style="background:${ch.color}20;color:${ch.color};border:1px solid ${ch.color}40">${ch.name[0]}</div>
+        <div class="p-stk-val"></div>
+      </div>`;
     }).join('');
 
-    d.innerHTML=`<div class="p-name">${p.name}${isMe?' <span style="color:var(--muted);font-size:0.6rem">(you)</span>':''}</div>
-      ${showCash
-        ?`<div style="display:flex;gap:10px;align-items:baseline"><div class="p-cash">$${p.cash.toLocaleString()}</div><div class="p-net">Net $${net.toLocaleString()}</div></div>`
-        :'<div class="p-cash" style="color:var(--muted)">···</div>'}
-      <div class="p-stocks" style="grid-template-columns:${colDefs}">${stockCols}</div>`;
+    d.innerHTML=leftHtml+`<div class="pcard-stocks">${stockCols}</div>`;
     el.appendChild(d);
   });
 }
 
-// ── WORTH (inline with tiles bar) ──
+// ── WORTH ──
 function renderWorth(){
   if(!gameState||myIdx===null)return;
   const me=gameState.players[myIdx];
@@ -1145,23 +1167,35 @@ function setAbtns(btns){
 function renderActionArea(){
   if(!gameState||myIdx===null)return;
   const isMe=myIdx===gameState.currentPlayer,phase=gameState.phase;
+
+  if(phase==='merge_pending'){
+    const pm=gameState.pendingMerge;
+    if(pm&&pm.currentDecision){
+      const decider=gameState.players[pm.currentDecision.pi];
+      if(pm.currentDecision.pi===myIdx){
+        setAmsg('Decide what to do with your merger shares.');
+      }else{
+        setAmsg(`Waiting for ${decider?.name||'player'} to decide merger shares...`);
+      }
+    }else{
+      setAmsg('Processing merger...');
+    }
+    setAbtns([]);
+    return;
+  }
+
   if(!isMe){setAmsg(`Waiting for ${gameState.players[gameState.currentPlayer]?.name}...`);setAbtns([]);return;}
   if(phase==='place'){
     selectedTile=null;
     setAmsg('Your turn — tap a tile or drag it to the board.');
     const btns=[];
-    // End game only available in advanced mode when a chain has 41+ tiles
     if(gameState.advancedMode){
       const hasGiantChain=CHAINS.some(ch=>chainSize(gameState.board,ch.id)>=41);
       if(hasGiantChain)btns.push({label:'END GAME',danger:true,action:()=>send({action:'end_game_voluntary'})});
     }
     setAbtns(btns);
   }else if(phase==='found_pending'){setAmsg('Choose a chain to found.');setAbtns([]);}
-  else if(phase==='merge_pending'){
-    const pm=gameState.pendingMerge;
-    const me=pm?.waitingFor.find(e=>e.pi===myIdx&&!e.confirmed);
-    setAmsg(me?'Decide what to do with your merger shares.':'Waiting for other players...');setAbtns([]);
-  }else if(phase==='buy'){
+  else if(phase==='buy'){
     setAmsg('Buy up to 3 shares, then end your turn.');
     setAbtns([{label:'BUY STOCK',primary:true,action:openBuyModal},{label:'SKIP',action:()=>send({action:'buy_stock',purchases:{}})}]);
   }
@@ -1180,13 +1214,14 @@ function openFoundModal(){
   openOverlay('found-overlay');
 }
 
-// ── BUY MODAL ──
+// ── BUY MODAL — preserves qty state on close/reopen ──
 function openBuyModal(){
   if(!gameState||myIdx===null)return;
   const cp=gameState.players[myIdx];
   document.getElementById('buy-cash-disp').textContent='$'+cp.cash.toLocaleString();
   const active=CHAINS.filter(c=>chainSize(gameState.board,c.id)>0);
-  buyQtys={};active.forEach(c=>buyQtys[c.id]=0);
+  // Only reset buyQtys for chains not currently active
+  active.forEach(c=>{if(buyQtys[c.id]===undefined)buyQtys[c.id]=0;});
   const el=document.getElementById('buy-stock-rows');
   const tQ=()=>Object.values(buyQtys).reduce((a,b)=>a+b,0);
   const tC=()=>active.reduce((s,c)=>s+buyQtys[c.id]*sharePrice(c.id,chainSize(gameState.board,c.id)),0);
@@ -1209,51 +1244,73 @@ function openBuyModal(){
     });
   };
   rb();
-  document.getElementById('buy-confirm').onclick=()=>{closeOverlay('buy-overlay');send({action:'buy_stock',purchases:buyQtys});};
-  document.getElementById('buy-skip').onclick=()=>{closeOverlay('buy-overlay');send({action:'buy_stock',purchases:{}});};
+  document.getElementById('buy-confirm').onclick=()=>{
+    closeOverlay('buy-overlay');
+    send({action:'buy_stock',purchases:buyQtys});
+    buyQtys={};
+  };
+  document.getElementById('buy-skip').onclick=()=>{closeOverlay('buy-overlay');send({action:'buy_stock',purchases:{}});buyQtys={};};
+  document.getElementById('buy-close').onclick=()=>{closeOverlay('buy-overlay');};
   openOverlay('buy-overlay');
 }
 
-// ── MERGE MODAL ──
+// ── MERGE MODAL — single queue entry at a time ──
 function openMergeModal(){
   if(!gameState?.pendingMerge||myIdx===null)return;
   const pm=gameState.pendingMerge;
-  const myEntries=pm.waitingFor.filter(e=>e.pi===myIdx&&!e.confirmed);
-  if(!myEntries.length)return;
+  const current=pm.currentDecision;
+  if(!current||current.pi!==myIdx)return;
+
+  const chainId=current.chainId;
+  const chain=CHAINS.find(c=>c.id===chainId);
   const sChain=CHAINS.find(c=>c.id===pm.survivor);
-  // Use pre-merge sizes for pricing
+  const p=gameState.players[myIdx];
+  const total=p.stocks[chainId];
   const preMergeSizes=pm.preMergeSizes||{};
+  const preMergeSize=preMergeSizes[chainId]||chainSize(gameState.board,chainId);
+  const price=sharePrice(chainId,preMergeSize);
+
+  // Queue progress
+  const queueInfo=document.getElementById('merge-queue-info');
+  if(pm.queueLength>1){
+    queueInfo.textContent=`Step 1 of ${pm.queueLength} — your decision for ${chain.name}`;
+    queueInfo.style.display='block';
+  }else{
+    queueInfo.style.display='none';
+  }
+
   document.getElementById('merge-info').innerHTML=
-    `<b>${pm.absorbed.map(id=>{const c=CHAINS.find(x=>x.id===id);return`<span style="color:${c.color}">${c.name}</span>`;}).join(' and ')}</b> will be absorbed into <span style="color:${sChain.color};font-weight:700">${sChain.name}</span>.<br>
-    <span style="font-size:0.72rem">Decide what to do with your shares before the merge completes.</span>`;
-  const el=document.getElementById('merge-actions');el.innerHTML='';mergeDecisions={};
-  myEntries.forEach(entry=>{
-    const chainId=entry.chainId,chain=CHAINS.find(c=>c.id===chainId);
-    const p=gameState.players[myIdx],total=p.stocks[chainId];
-    const preMergeSize=preMergeSizes[chainId]||chainSize(gameState.board,chainId);
-    const price=sharePrice(chainId,preMergeSize);
-    mergeDecisions[chainId]={sell:0,trade:0};
-    const sec=document.createElement('div');sec.className='merge-sec';
-    const r=()=>{
-      const d=mergeDecisions[chainId];const mxS=total-d.trade*2,mxT=Math.floor((total-d.sell)/2);
-      sec.innerHTML=`<div class="merge-sec-hdr" style="color:${chain.color}">${chain.name} — ${total} shares (keep ${total-d.sell-d.trade*2})</div>
-        <div style="font-size:0.67rem;color:var(--muted);margin-bottom:8px">Pre-merger price: $${price.toLocaleString()}/share</div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap">
-          <div><div style="font-size:0.65rem;color:var(--muted);margin-bottom:4px">SELL @ $${price.toLocaleString()}</div>
-            <div class="qty-ctrl"><button class="qbtn" id="sm-${chainId}">−</button><span class="qval">${d.sell}</span><button class="qbtn" id="sp-${chainId}">+</button></div></div>
-          <div><div style="font-size:0.65rem;color:var(--muted);margin-bottom:4px">TRADE 2→1 <span style="color:${sChain.color}">${sChain.name}</span></div>
-            <div class="qty-ctrl"><button class="qbtn" id="tm-${chainId}">−</button><span class="qval">${d.trade}</span><button class="qbtn" id="tp-${chainId}">+</button></div></div>
-        </div>`;
-      sec.querySelector(`#sm-${chainId}`).onclick=()=>{if(d.sell>0){d.sell--;r();}};
-      sec.querySelector(`#sp-${chainId}`).onclick=()=>{if(d.sell<mxS){d.sell++;r();}};
-      sec.querySelector(`#tm-${chainId}`).onclick=()=>{if(d.trade>0){d.trade--;r();}};
-      sec.querySelector(`#tp-${chainId}`).onclick=()=>{if(d.trade<mxT){d.trade++;r();}};
-    };
-    r();el.appendChild(sec);
-  });
+    `<b><span style="color:${chain.color}">${chain.name}</span></b> will be absorbed into <span style="color:${sChain.color};font-weight:700">${sChain.name}</span>.<br>
+    <span style="font-size:0.72rem">You hold ${total} share${total!==1?'s':''}. Decide what to do before the merge completes.</span>`;
+
+  const el=document.getElementById('merge-actions');el.innerHTML='';
+  let decision={sell:0,trade:0};
+
+  const survivorBankShares=pm.preMergeSizes?gameState.stocks[pm.survivor]:0;
+
+  const render=()=>{
+    const mxS=total-decision.trade*2;
+    const mxT=Math.min(Math.floor((total-decision.sell)/2),Math.floor(survivorBankShares/2));
+    el.innerHTML=`<div class="merge-sec">
+      <div class="merge-sec-hdr" style="color:${chain.color}">${chain.name} — ${total} shares (keep ${total-decision.sell-decision.trade*2})</div>
+      <div style="font-size:0.67rem;color:var(--muted);margin-bottom:8px">Pre-merger price: $${price.toLocaleString()}/share · ${survivorBankShares} ${sChain.name} shares in bank</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div><div style="font-size:0.65rem;color:var(--muted);margin-bottom:4px">SELL @ $${price.toLocaleString()}</div>
+          <div class="qty-ctrl"><button class="qbtn" id="sm">−</button><span class="qval">${decision.sell}</span><button class="qbtn" id="sp">+</button></div></div>
+        <div><div style="font-size:0.65rem;color:var(--muted);margin-bottom:4px">TRADE 2→1 <span style="color:${sChain.color}">${sChain.name}</span></div>
+          <div class="qty-ctrl"><button class="qbtn" id="tm">−</button><span class="qval">${decision.trade}</span><button class="qbtn" id="tp">+</button></div></div>
+      </div>
+    </div>`;
+    el.querySelector('#sm').onclick=()=>{if(decision.sell>0){decision.sell--;render();}};
+    el.querySelector('#sp').onclick=()=>{if(decision.sell<mxS){decision.sell++;render();}};
+    el.querySelector('#tm').onclick=()=>{if(decision.trade>0){decision.trade--;render();}};
+    el.querySelector('#tp').onclick=()=>{if(decision.trade<mxT){decision.trade++;render();}};
+  };
+  render();
+
   document.getElementById('merge-confirm').onclick=()=>{
     closeOverlay('merge-overlay');
-    myEntries.forEach(entry=>{const d=mergeDecisions[entry.chainId]||{sell:0,trade:0};send({action:'merge_decision',chainId:entry.chainId,sell:d.sell,trade:d.trade});});
+    send({action:'merge_decision',chainId,sell:decision.sell,trade:decision.trade});
   };
   openOverlay('merge-overlay');
 }
@@ -1270,38 +1327,19 @@ function dismissBanner(){document.getElementById('bonus-banner').classList.remov
 // ── REFERENCE CARD ──
 function openRefCard(){
   const tbl=document.getElementById('ref-tbl');
-  // Data rows: [hotelCount, Tower/Luxor price, WW/Fest/Impl price, Amer/Cont price]
-  const rows=[
-    [2,    null, null, null],  // only Tower/Luxor active at 2
-    [3,    200,  300,  400],
-    [4,    300,  400,  500],
-    [5,    400,  500,  600],
-    [6,    500,  600,  700],
-    ['6–10', 600, 700, 800],
-    ['11–20',700, 800, 900],
-    ['21–30',800, 900, 1000],
-    ['31–40',900, 1000,1100],
-    ['41+',  1000,1100,1200],
+  const displayRows=[
+    {t1:'2', t2:'—',  t3:'—',  p:200},
+    {t1:'3', t2:'2',  t3:'—',  p:300},
+    {t1:'4', t2:'3',  t3:'2',  p:400},
+    {t1:'5', t2:'4',  t3:'3',  p:500},
+    {t1:'6–10',t2:'5',t3:'4',  p:600},
+    {t1:'11–20',t2:'6–10',t3:'5',p:700},
+    {t1:'21–30',t2:'11–20',t3:'6–10',p:800},
+    {t1:'31–40',t2:'21–30',t3:'11–20',p:900},
+    {t1:'41+',t2:'31–40',t3:'21–30',p:1000},
+    {t1:'—', t2:'41+', t3:'31–40',p:1100},
+    {t1:'—', t2:'—',  t3:'41+',p:1200},
   ];
-  // Actual Acquire reference card data — hotels: price, maj bonus, min bonus
-  const refData=[
-    {hotels:'2',    t1p:200,  t2p:300,  t3p:400},
-    {hotels:'3',    t1p:300,  t2p:400,  t3p:500},
-    {hotels:'4',    t1p:400,  t2p:500,  t3p:600},
-    {hotels:'5',    t1p:500,  t2p:600,  t3p:700},
-    {hotels:'6–10', t1p:600,  t2p:700,  t3p:800},
-    {hotels:'11–20',t1p:700,  t2p:800,  t3p:900},
-    {hotels:'21–30',t1p:800,  t2p:900,  t3p:1000},
-    {hotels:'31–40',t1p:900,  t2p:1000, t3p:1100},
-    {hotels:'41+',  t1p:1000, t2p:1100, t3p:1200},
-  ];
-  const fmt=n=>'$'+(n*1000).toLocaleString().replace(',000','');
-  // Actually just use raw numbers
-  const fmtK=n=>'$'+(n/1000).toFixed(1).replace('.0','')+'K';
-  const fmtN=n=>'$'+n.toLocaleString();
-
-  // Build table matching physical card layout:
-  // Cols: Hotels | Tower/Luxor | WW/Festival/Imperial | American/Continental | Price/Share | Majority | Minority
   let head=`<thead>
     <tr>
       <th colspan="3" style="text-align:center;border-right:1px solid var(--bdr);padding-bottom:3px;font-size:0.6rem;letter-spacing:1px">NUMBER OF HOTELS IN CHAIN</th>
@@ -1316,24 +1354,6 @@ function openRefCard(){
       <th style="text-align:center">Minority</th>
     </tr>
   </thead>`;
-
-  // Row data for display: what hotel count appears in which tier column
-  // Physical card shows: row for T1 entry, T2 entry, T3 entry by size
-  // Simplified: show all rows, dash where chain can't exist
-  const displayRows=[
-    {t1:'2', t2:'—',  t3:'—',  p:200},
-    {t1:'3', t2:'2',  t3:'—',  p:300},
-    {t1:'4', t2:'3',  t3:'2',  p:400},
-    {t1:'5', t2:'4',  t3:'3',  p:500},
-    {t1:'6–10',t2:'5',t3:'4',  p:600},
-    {t1:'11–20',t2:'6–10',t3:'5',p:700},
-    {t1:'21–30',t2:'11–20',t3:'6–10',p:800},
-    {t1:'31–40',t2:'21–30',t3:'11–20',p:900},
-    {t1:'41+',t2:'31–40',t3:'21–30',p:1000},
-    {t1:'—', t2:'41+', t3:'31–40',p:1100},
-    {t1:'—', t2:'—',  t3:'41+',p:1200},
-  ];
-
   let body='<tbody>';
   displayRows.forEach(r=>{
     const maj=r.p*10,min=r.p*5;
@@ -1348,10 +1368,7 @@ function openRefCard(){
     </tr>`;
   });
   body+='</tbody>';
-
   tbl.innerHTML=head+body;
-
-  // Also update the notes section
   const notes=document.getElementById('ref-notes');
   if(notes){
     notes.innerHTML=`
@@ -1360,7 +1377,6 @@ function openRefCard(){
       <div style="margin-bottom:6px"><b style="color:var(--txt)">Majority tie:</b> Add majority + minority bonuses, split evenly (rounded down to nearest $100), minority bonus is forfeited.</div>
       <div><b style="color:var(--txt)">Minority tie:</b> Split the minority bonus evenly among tied holders (rounded down to nearest $100).</div>`;
   }
-
   document.getElementById('ref-overlay').classList.add('open');
 }
 function closeRefCard(){document.getElementById('ref-overlay').classList.remove('open');}
@@ -1391,7 +1407,6 @@ async function openSnapshot(pin){
 }
 function renderSnapshot(pin,state){
   document.getElementById('snap-title').textContent=(state.gameName||`Game ${pin}`)+' — FINAL';
-  // Board
   const grid=document.getElementById('snap-grid');grid.innerHTML='';
   for(const row of ROWS){for(const col of COLS){
     const tid=col+row;const div=document.createElement('div');div.className='snap-tile';
@@ -1399,10 +1414,8 @@ function renderSnapshot(pin,state){
     if(val)div.classList.add(val==='neutral'?'neutral-placed':val);
     div.textContent=col+row;grid.appendChild(div);
   }}
-  // Stats table with chain breakdown
   const sorted=[...state.players].sort((a,b)=>b.cash-a.cash);
   const activeC=CHAINS.filter(c=>state.endStats?.chainSizes[c.id]>0||(state.board&&chainSize(state.board,c.id)>0));
-  // Build header
   const head=document.getElementById('snap-stats-head');
   head.innerHTML=`<tr><th>Player</th><th>Cash</th>${activeC.map(c=>`<th style="color:${c.color}">${c.name[0]}</th>`).join('')}</tr>`;
   const tbody=document.getElementById('snap-stats-body');tbody.innerHTML='';
@@ -1570,10 +1583,7 @@ function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.clas
 function currentScreen(){for(const s of document.querySelectorAll('.screen'))if(s.classList.contains('active'))return s.id.replace('-screen','');}
 window.addEventListener('resize',()=>{if(currentScreen()==='game')fitBoard();});
 
-// Deep link from push notification
 const urlPin=new URLSearchParams(location.search).get('pin');
-
-// Boot
 initName();
 if(urlPin&&myName){enterGame(urlPin);}
 </script>
