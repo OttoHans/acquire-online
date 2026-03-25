@@ -179,7 +179,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 /* Tiles bar */
 .tiles-cash-bar{display:flex;align-items:center;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:52px}
 .tiles-label{font-size:0.56rem;letter-spacing:2px;color:var(--muted);padding:4px 6px;text-transform:uppercase;white-space:normal;text-align:center;line-height:1.4;width:36px;flex-shrink:0;border-right:1px solid var(--bdr);align-self:stretch;display:flex;align-items:center;justify-content:center}
-.hand-tiles{display:flex;align-items:center;gap:4px;padding:5px 7px;flex:1;overflow:hidden;flex-wrap:nowrap}
+.hand-tiles{display:flex;align-items:center;justify-content:center;padding:5px 0;flex:1;overflow:hidden;flex-wrap:nowrap}
 .htile{background:var(--surf3);border:1px solid var(--gold-dim);color:var(--gold);font-family:'Courier Prime',monospace;font-size:0.78rem;cursor:grab;user-select:none;transition:all 0.12s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0}
 .inline-cash{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;border-left:1px solid var(--bdr);align-self:stretch;flex-shrink:0;min-width:100px}
 .inline-cash-label{font-size:0.52rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px}
@@ -189,6 +189,11 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .htile.dragging{opacity:0.35;cursor:grabbing}
 .htile.temp-unplayable{border-color:#5a4010;color:#6a5020;cursor:not-allowed;opacity:0.5}
 .htile.perm-unplayable{border-color:#3a1010;color:#5a2020;cursor:not-allowed;opacity:0.3;text-decoration:line-through}
+.htile.hand-ghost{background:var(--surf2);border:1px dashed var(--faint);opacity:0.4;cursor:default;pointer-events:none}
+/* Board tile: passive highlight (all hand tiles on your turn) */
+.tile.in-hand{border-color:var(--gold-dim);color:var(--gold);cursor:pointer}
+/* Board tile: emphasis (selected tile) */
+.tile.in-hand-selected{border-color:#fff;color:#fff;outline:2px solid rgba(255,255,255,0.5);outline-offset:1px;z-index:3;background:#352400}
 
 /* Action strip */
 .action-strip{display:flex;align-items:center;gap:6px;padding:3px 9px;background:var(--surf);border-top:1px solid var(--bdr);flex-shrink:0;min-height:26px}
@@ -627,6 +632,16 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
   <div id="found-list"></div>
 </div></div>
 
+<!-- PLACE TILE CONFIRMATION -->
+<div class="overlay" id="place-overlay"><div class="modal">
+  <h2>PLACE TILE</h2>
+  <div class="modal-sub" id="place-modal-msg">Place tile X on the board?</div>
+  <div class="modal-footer">
+    <button id="place-cancel">CANCEL</button>
+    <button class="confirm" id="place-confirm">PLACE</button>
+  </div>
+</div></div>
+
 <!-- BUY OVERLAY — close button preserves selections -->
 <div class="overlay" id="buy-overlay"><div class="modal">
   <h2>BUY STOCK</h2>
@@ -728,11 +743,16 @@ function netWorth(p,board){
 // STATE
 let myName=null,myPin=null,myIdx=null;
 let ws=null,gameState=null,myHand=[],myUnplayable=[],selectedTile=null;
+let handOrder=[]; // local tile order for rearranging
 let createMode='beginner';
 let buyQtys={};
 let zoom=1,panX=0,panY=0,isPanning=false,panStart={x:0,y:0};
 let lastPinchDist=0,tc1=null,tc2=null;
+// Board placement drag
 let dragTile=null,touchDragActive=false,touchDragTile=null;
+// Hand reorder drag
+let handDragTid=null,handDragInsertIdx=null;
+let touchHandDragActive=false,touchHandDragTid=null,touchHandInsertIdx=null;
 const dragGhost=document.getElementById('drag-ghost');
 let chainPopupTimeout=null;
 let adminAuthed=false,adminPin=null,longPressTimer=null;
@@ -755,7 +775,7 @@ function setNameStatus(m,err=false){const el=document.getElementById('name-statu
 // ── DASHBOARD ──
 function goToDashboard(){
   disconnectWS();
-  myPin=null;myIdx=null;gameState=null;myHand=[];myUnplayable=[];selectedTile=null;
+  myPin=null;myIdx=null;gameState=null;myHand=[];myUnplayable=[];selectedTile=null;handOrder=[];
   showScreen('dash');
   document.getElementById('dash-player-name').textContent=myName;
   initAdminLongPress();
@@ -968,8 +988,10 @@ function renderBoard(){
         if(isPerm)div.classList.add('perm-unplayable');
         else if(isTemp)div.classList.add('temp-unplayable');
         else{
+          // Layer 1: passive highlight for all hand tiles
           div.classList.add('in-hand');
-          if(selectedTile===tid)div.classList.add('selected');
+          // Layer 2: emphasis for selected tile
+          if(selectedTile===tid)div.classList.add('in-hand-selected');
           div.addEventListener('mouseenter',()=>hoverSync(tid,true));
           div.addEventListener('mouseleave',()=>hoverSync(tid,false));
           div.addEventListener('click',()=>onTileClick(tid));
@@ -989,13 +1011,17 @@ function hoverSync(tid,on){document.querySelectorAll(`.tile[data-tid="${tid}"],.
 function onTileClick(tid){
   if(!gameState||gameState.phase!=='place'||myIdx!==gameState.currentPlayer)return;
   if(myUnplayable.includes(tid))return;
-  if(selectedTile===tid){doPlace(tid);return;}
-  selectedTile=tid;renderBoard();renderHand();
-  setAmsg(`Place tile ${tid}?`);
-  setAbtns([
-    {label:`PLACE ${tid}`,primary:true,action:()=>doPlace(tid)},
-    {label:'CANCEL',action:()=>{selectedTile=null;renderBoard();renderHand();renderActionArea();}}
-  ]);
+  // Toggle selection — no placement from tap
+  if(selectedTile===tid){selectedTile=null;}else{selectedTile=tid;}
+  renderBoard();renderHand();
+  renderActionArea();
+}
+
+function confirmPlace(tid){
+  document.getElementById('place-modal-msg').textContent=`Place tile ${tid} on the board?`;
+  document.getElementById('place-confirm').onclick=()=>{closeOverlay('place-overlay');doPlace(tid);};
+  document.getElementById('place-cancel').onclick=()=>{closeOverlay('place-overlay');};
+  openOverlay('place-overlay');
 }
 function doPlace(tid){send({action:'place_tile',tile:tid});selectedTile=null;}
 
@@ -1030,32 +1056,74 @@ document.addEventListener('click',e=>{
 });
 
 // ── HAND ──
+// Keep handOrder in sync with myHand from server, preserving local ordering
+function syncHandOrder(){
+  // Add any new tiles not yet in handOrder
+  myHand.forEach(t=>{if(!handOrder.includes(t))handOrder.push(t);});
+  // Remove any tiles no longer in hand
+  handOrder=handOrder.filter(t=>myHand.includes(t));
+}
+
 function renderHand(){
   const el=document.getElementById('hand-tiles');el.innerHTML='';
   if(!gameState||myIdx===null||!myHand.length){el.innerHTML='<span style="color:var(--muted);font-size:0.72rem">—</span>';return;}
+  syncHandOrder();
   const board=gameState.board;
   const avail=CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)===0);
   const isMyTurn=myIdx===gameState.currentPlayer&&gameState.phase==='place';
-  myHand.forEach(tid=>{
-    const span=document.createElement('span');span.className='htile';span.dataset.tid=tid;
+
+  // Calculate dynamic gap: target ~12px, but ensure all tiles fit
+  const containerW=el.parentElement?el.parentElement.clientWidth-36-100:200; // subtract tiles-label and cash
+  const tileW=36;
+  const n=handOrder.length+(handDragTid?1:0); // include ghost slot
+  const maxGap=n>1?Math.floor((containerW-tileW*handOrder.length)/(handOrder.length+1)):12;
+  const gap=Math.max(4,Math.min(12,maxGap));
+
+  el.style.gap=gap+'px';
+  el.style.paddingLeft=gap+'px';
+  el.style.paddingRight=gap+'px';
+
+  handOrder.forEach((tid,idx)=>{
+    // If reordering, show ghost at insert position
+    if(handDragTid&&handDragTid!==tid&&handDragInsertIdx===idx){
+      const ghost=document.createElement('span');
+      ghost.className='htile hand-ghost';
+      ghost.textContent=handDragTid;
+      el.appendChild(ghost);
+    }
+
+    const span=document.createElement('span');
+    span.className='htile';span.dataset.tid=tid;span.dataset.idx=idx;
     const isPerm=myUnplayable.includes(tid)&&classifyTile(board,tid,avail)==='perm_unplayable';
     const isTemp=myUnplayable.includes(tid)&&classifyTile(board,tid,avail)==='temp_unplayable';
-    if(isPerm){span.classList.add('perm-unplayable');span.title='Permanently unplayable — will be auto-discarded';}
+
+    if(isPerm){span.classList.add('perm-unplayable');span.title='Permanently unplayable';}
     else if(isTemp){span.classList.add('temp-unplayable');span.title='Cannot play until a chain is disbanded';}
     else if(!isMyTurn){span.style.opacity='0.5';span.style.cursor='default';}
+
+    if(handDragTid===tid){span.classList.add('dragging');}
     if(selectedTile===tid)span.classList.add('selected');
     span.textContent=tid;
+
     if(isMyTurn&&!isPerm&&!isTemp){
       span.addEventListener('mouseenter',()=>hoverSync(tid,true));
       span.addEventListener('mouseleave',()=>hoverSync(tid,false));
       span.addEventListener('click',()=>onTileClick(tid));
-      span.setAttribute('draggable','true');
-      span.addEventListener('dragstart',e=>startDrag(e,tid));
-      span.addEventListener('dragend',endDrag);
-      span.addEventListener('touchstart',e=>touchDragStart(e,tid),{passive:false});
+      // Touch drag for both reorder and board placement
+      span.addEventListener('touchstart',e=>onHandTouchStart(e,tid),{passive:false});
+      // Mouse drag
+      span.addEventListener('mousedown',e=>onHandMouseDown(e,tid));
     }
     el.appendChild(span);
   });
+
+  // Ghost at end of list
+  if(handDragTid&&handDragInsertIdx>=handOrder.length){
+    const ghost=document.createElement('span');
+    ghost.className='htile hand-ghost';
+    ghost.textContent=handDragTid;
+    el.appendChild(ghost);
+  }
 }
 
 // ── CHAINS PANEL ──
@@ -1200,8 +1268,8 @@ function renderActionArea(){
 
   if(!isMe){setAmsg(`Waiting for ${gameState.players[gameState.currentPlayer]?.name}...`);setAbtns([]);return;}
   if(phase==='place'){
-    selectedTile=null;
-    setAmsg('Your turn — tap a tile or drag it to the board.');
+    const msg=selectedTile?`Tile ${selectedTile} selected — drag to board to place.`:'Your turn — tap a tile to select, drag to board to place.';
+    setAmsg(msg);
     const btns=[];
     if(gameState.advancedMode){
       const hasGiantChain=CHAINS.some(ch=>chainSize(gameState.board,ch.id)>=41);
@@ -1458,33 +1526,176 @@ document.getElementById('snap-dismiss-btn').addEventListener('click',async()=>{
   }catch(e){document.getElementById('snap-status').textContent='Could not dismiss.';}
 });
 
-// ── DRAG ──
-function startDrag(e,tid){
-  if(gameState?.phase!=='place'||myIdx!==gameState?.currentPlayer)return;
-  dragTile=tid;dragGhost.textContent=tid;dragGhost.style.display='block';
-  e.dataTransfer.effectAllowed='move';e.dataTransfer.setDragImage(document.createElement('div'),0,0);
-  document.querySelectorAll(`.htile[data-tid="${tid}"]`).forEach(el=>el.classList.add('dragging'));
-  renderBoard();
+// ── DRAG SYSTEM ──
+// Shared floating ghost element
+function showDragGhost(tid,x,y){dragGhost.textContent=tid;dragGhost.style.display='block';moveDragGhost(x,y);}
+function moveDragGhost(x,y){dragGhost.style.left=x+'px';dragGhost.style.top=y+'px';}
+function hideDragGhost(){dragGhost.style.display='none';}
+
+function isOverBoardVp(x,y){
+  const vp=document.getElementById('board-vp');
+  const r=vp.getBoundingClientRect();
+  return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
 }
-function endDrag(){dragTile=null;dragGhost.style.display='none';document.querySelectorAll('.htile').forEach(el=>el.classList.remove('dragging'));renderBoard();}
-document.addEventListener('dragover',e=>{e.preventDefault();dragGhost.style.left=e.clientX+'px';dragGhost.style.top=e.clientY+'px';});
-document.getElementById('board-grid').addEventListener('dragover',e=>e.preventDefault());
-document.getElementById('board-grid').addEventListener('drop',e=>{
-  e.preventDefault();const el=e.target.closest('.tile');
-  if(!el||!dragTile)return;if(el.dataset.tid===dragTile)doPlace(dragTile);endDrag();
-});
-function touchDragStart(e,tid){
-  if(gameState?.phase!=='place'||myIdx!==gameState?.currentPlayer)return;
-  touchDragTile=tid;touchDragActive=true;dragTile=tid;dragGhost.textContent=tid;dragGhost.style.display='block';
-  document.querySelectorAll(`.htile[data-tid="${tid}"]`).forEach(el=>el.classList.add('dragging'));renderBoard();
-  document.addEventListener('touchmove',tdMove,{passive:false});document.addEventListener('touchend',tdEnd);
+function isOverHandBar(x,y){
+  const el=document.getElementById('hand-tiles');
+  const r=el.getBoundingClientRect();
+  return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
 }
-function tdMove(e){if(!touchDragActive)return;e.preventDefault();const t=e.touches[0];dragGhost.style.left=t.clientX+'px';dragGhost.style.top=t.clientY+'px';}
-function tdEnd(e){
-  if(!touchDragActive)return;touchDragActive=false;
-  const t=e.changedTouches[0];const el=document.elementFromPoint(t.clientX,t.clientY)?.closest?.('.tile');
-  if(el&&el.dataset.tid===touchDragTile)doPlace(touchDragTile);
-  endDrag();touchDragTile=null;document.removeEventListener('touchmove',tdMove);document.removeEventListener('touchend',tdEnd);
+function getHandInsertIdx(x){
+  const el=document.getElementById('hand-tiles');
+  const tiles=[...el.querySelectorAll('.htile:not(.hand-ghost)')];
+  for(let i=0;i<tiles.length;i++){
+    const r=tiles[i].getBoundingClientRect();
+    if(x<r.left+r.width/2)return i;
+  }
+  return tiles.length;
+}
+function getBoardTileAtPoint(x,y){
+  const el=document.elementFromPoint(x,y);
+  return el?.closest('.tile')||null;
+}
+
+// ── MOUSE DRAG (hand tiles) ──
+let mouseDragTid=null,mouseDragMode=null; // mode: 'board' | 'hand'
+function onHandMouseDown(e,tid){
+  if(e.button!==0)return;
+  if(!gameState||gameState.phase!=='place'||myIdx!==gameState.currentPlayer)return;
+  if(myUnplayable.includes(tid))return;
+  mouseDragTid=tid;
+  mouseDragMode=null;
+  showDragGhost(tid,e.clientX,e.clientY);
+  window.addEventListener('mousemove',onMouseDragMove);
+  window.addEventListener('mouseup',onMouseDragEnd);
+  e.preventDefault();
+}
+function onMouseDragMove(e){
+  if(!mouseDragTid)return;
+  moveDragGhost(e.clientX,e.clientY);
+  if(isOverBoardVp(e.clientX,e.clientY)){
+    mouseDragMode='board';
+    handDragTid=null;handDragInsertIdx=null;
+    dragTile=mouseDragTid;
+    renderBoard();renderHand();
+  }else if(isOverHandBar(e.clientX,e.clientY)){
+    mouseDragMode='hand';
+    dragTile=null;
+    handDragTid=mouseDragTid;
+    handDragInsertIdx=getHandInsertIdx(e.clientX);
+    renderBoard();renderHand();
+  }else{
+    mouseDragMode=null;
+    dragTile=null;
+    handDragTid=mouseDragTid; // keep ghost in hand visible as dragging
+    handDragInsertIdx=null;
+    renderBoard();renderHand();
+  }
+}
+function onMouseDragEnd(e){
+  window.removeEventListener('mousemove',onMouseDragMove);
+  window.removeEventListener('mouseup',onMouseDragEnd);
+  if(!mouseDragTid){hideDragGhost();return;}
+  const tid=mouseDragTid;
+  mouseDragTid=null;dragTile=null;
+
+  if(mouseDragMode==='board'){
+    const boardTile=getBoardTileAtPoint(e.clientX,e.clientY);
+    if(boardTile&&boardTile.dataset.tid===tid){
+      handDragTid=null;handDragInsertIdx=null;
+      hideDragGhost();renderBoard();renderHand();
+      confirmPlace(tid);
+      return;
+    }
+  }else if(mouseDragMode==='hand'&&handDragInsertIdx!==null){
+    // Reorder
+    const fromIdx=handOrder.indexOf(tid);
+    if(fromIdx!==-1){
+      handOrder.splice(fromIdx,1);
+      let insertAt=handDragInsertIdx;
+      if(insertAt>fromIdx)insertAt--;
+      handOrder.splice(insertAt,0,tid);
+    }
+  }
+  handDragTid=null;handDragInsertIdx=null;
+  mouseDragMode=null;
+  hideDragGhost();renderBoard();renderHand();
+}
+
+// ── TOUCH DRAG (hand tiles) ──
+let touchDragStartX=0,touchDragStartY=0,touchDragMoved=false;
+function onHandTouchStart(e,tid){
+  if(!gameState||gameState.phase!=='place'||myIdx!==gameState.currentPlayer)return;
+  if(myUnplayable.includes(tid))return;
+  const t=e.touches[0];
+  touchDragStartX=t.clientX;touchDragStartY=t.clientY;
+  touchDragMoved=false;
+  touchHandDragTid=tid;
+  touchHandDragActive=false; // don't activate until moved enough
+  showDragGhost(tid,t.clientX,t.clientY);
+  document.addEventListener('touchmove',onHandTouchMove,{passive:false});
+  document.addEventListener('touchend',onHandTouchEnd);
+  e.stopPropagation();
+}
+function onHandTouchMove(e){
+  if(!touchHandDragTid)return;
+  e.preventDefault();
+  const t=e.touches[0];
+  const dx=t.clientX-touchDragStartX,dy=t.clientY-touchDragStartY;
+  if(!touchDragMoved&&Math.hypot(dx,dy)>6){touchDragMoved=true;touchHandDragActive=true;}
+  if(!touchHandDragActive)return;
+  moveDragGhost(t.clientX,t.clientY);
+
+  if(isOverBoardVp(t.clientX,t.clientY)){
+    dragTile=touchHandDragTid;
+    handDragTid=null;handDragInsertIdx=null;
+    touchHandInsertIdx=null;
+    renderBoard();renderHand();
+  }else if(isOverHandBar(t.clientX,t.clientY)){
+    dragTile=null;
+    handDragTid=touchHandDragTid;
+    touchHandInsertIdx=getHandInsertIdx(t.clientX);
+    handDragInsertIdx=touchHandInsertIdx;
+    renderBoard();renderHand();
+  }else{
+    dragTile=null;
+    handDragTid=touchHandDragTid;
+    handDragInsertIdx=null;
+    touchHandInsertIdx=null;
+    renderBoard();renderHand();
+  }
+}
+function onHandTouchEnd(e){
+  document.removeEventListener('touchmove',onHandTouchMove);
+  document.removeEventListener('touchend',onHandTouchEnd);
+  const tid=touchHandDragTid;
+  touchHandDragTid=null;
+  dragTile=null;
+
+  if(!touchDragMoved){
+    // Tap — select only
+    handDragTid=null;handDragInsertIdx=null;
+    hideDragGhost();renderBoard();renderHand();
+    return;
+  }
+
+  const t=e.changedTouches[0];
+  if(isOverBoardVp(t.clientX,t.clientY)&&tid){
+    handDragTid=null;handDragInsertIdx=null;
+    hideDragGhost();renderBoard();renderHand();
+    confirmPlace(tid);
+    return;
+  }else if(touchHandInsertIdx!==null&&tid){
+    const fromIdx=handOrder.indexOf(tid);
+    if(fromIdx!==-1){
+      handOrder.splice(fromIdx,1);
+      let insertAt=touchHandInsertIdx;
+      if(insertAt>fromIdx)insertAt--;
+      handOrder.splice(insertAt,0,tid);
+    }
+  }
+  handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
+  touchHandDragActive=false;
+  hideDragGhost();renderBoard();renderHand();
 }
 
 // ── ZOOM & PAN ──
