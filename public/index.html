@@ -170,7 +170,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .tile.in-hand.selected{background:#352400;border-color:#fff;color:#fff;outline:2px solid rgba(255,255,255,0.5);outline-offset:1px;z-index:3}
 .tile.temp-unplayable{border-color:#5a4010;color:#6a5020;cursor:not-allowed;opacity:0.5}
 .tile.perm-unplayable{border-color:#3a1010;color:#5a2020;cursor:not-allowed;opacity:0.3}
-.tile.drop-target{background:#1a2800;border-color:#60a020;box-shadow:0 0 10px rgba(96,160,32,0.4)}
+.tile.drop-target{background:#1a1400;border-color:var(--gold2);box-shadow:0 0 10px rgba(168,134,58,0.5)}
 @keyframes pulse-abs{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.25;transform:scale(0.95)}}
 @keyframes flood-in{0%{transform:scale(0.6);opacity:0}100%{transform:scale(1);opacity:1}}
 .tile.merging{animation:pulse-abs 0.45s ease-in-out 3}
@@ -206,7 +206,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 
 /* Log */
 .log-box{height:72px;overflow-y:auto;background:var(--bg);border-top:1px solid var(--bdr);padding:3px 9px;flex-shrink:0}
-.log-box p{font-size:0.67rem;color:var(--muted);line-height:1.5;margin-bottom:1px}
+.log-box p{font-size:0.67rem;color:var(--muted);line-height:1.25;margin-bottom:0}
 .log-box p b{color:var(--txt);font-weight:400}
 
 /* Right panel */
@@ -981,25 +981,29 @@ function renderBoard(){
           div.style.cursor='pointer';
           div.addEventListener('click',e=>{e.stopPropagation();showChainPopup(val,e);});
         }
-      }else if(isMyTurn&&myHand.includes(tid)){
+      }else if(myHand.includes(tid)){
         const cls=classifyTile(board,tid,avail);
         const isPerm=myUnplayable.includes(tid)&&cls==='perm_unplayable';
         const isTemp=myUnplayable.includes(tid)&&cls==='temp_unplayable';
         if(isPerm)div.classList.add('perm-unplayable');
         else if(isTemp)div.classList.add('temp-unplayable');
         else{
-          // Layer 1: passive highlight for all hand tiles
+          // Passive highlight always visible for your hand tiles
           div.classList.add('in-hand');
-          // Layer 2: emphasis for selected tile
+          // Emphasis only for selected tile
           if(selectedTile===tid)div.classList.add('in-hand-selected');
-          div.addEventListener('mouseenter',()=>hoverSync(tid,true));
-          div.addEventListener('mouseleave',()=>hoverSync(tid,false));
-          div.addEventListener('click',()=>onTileClick(tid));
+          if(isMyTurn){
+            div.addEventListener('mouseenter',()=>hoverSync(tid,true));
+            div.addEventListener('mouseleave',()=>hoverSync(tid,false));
+            div.addEventListener('click',()=>onTileClick(tid));
+          }
         }
         div.textContent=col+row;
       }else{div.textContent=col+row;}
-      if(dragTile&&!val&&myHand.includes(tid)){
-        const cls=classifyTile(board,tid,avail);if(cls!=='perm_unplayable'&&cls!=='temp_unplayable')div.classList.add('drop-target');
+      // Drop-target only for the tile currently being dragged
+      if(dragTile&&dragTile===tid&&!val){
+        const cls=classifyTile(board,tid,avail);
+        if(cls!=='perm_unplayable'&&cls!=='temp_unplayable')div.classList.add('drop-target');
       }
       grid.appendChild(div);
     }
@@ -1619,26 +1623,47 @@ function onMouseDragEnd(e){
   hideDragGhost();renderBoard();renderHand();
 }
 
-// ── TOUCH DRAG (hand tiles) ──
-let touchDragStartX=0,touchDragStartY=0,touchDragMoved=false;
+// ── TOUCH DRAG (hand tiles) — press & hold 300ms to activate drag ──
+let touchHoldTimer=null;
+let touchDragStartX=0,touchDragStartY=0;
+let touchDragActivated=false;
+
 function onHandTouchStart(e,tid){
   const t=e.touches[0];
   touchDragStartX=t.clientX;touchDragStartY=t.clientY;
-  touchDragMoved=false;
+  touchDragActivated=false;
   touchHandDragTid=tid;
   touchHandDragActive=false;
-  showDragGhost(tid,t.clientX,t.clientY);
+
+  // 300ms hold activates drag
+  touchHoldTimer=setTimeout(()=>{
+    touchDragActivated=true;
+    touchHandDragActive=true;
+    showDragGhost(tid,touchDragStartX,touchDragStartY);
+    handDragTid=tid;
+    renderHand();
+  },300);
+
   document.addEventListener('touchmove',onHandTouchMove,{passive:false});
   document.addEventListener('touchend',onHandTouchEnd);
   e.stopPropagation();
 }
+
 function onHandTouchMove(e){
   if(!touchHandDragTid)return;
-  e.preventDefault();
   const t=e.touches[0];
   const dx=t.clientX-touchDragStartX,dy=t.clientY-touchDragStartY;
-  if(!touchDragMoved&&Math.hypot(dx,dy)>6){touchDragMoved=true;touchHandDragActive=true;}
-  if(!touchHandDragActive)return;
+
+  // If finger moves significantly before hold fires, cancel the hold timer
+  if(!touchDragActivated){
+    if(Math.hypot(dx,dy)>8){
+      clearTimeout(touchHoldTimer);
+      touchHoldTimer=null;
+    }
+    return;
+  }
+
+  e.preventDefault();
   moveDragGhost(t.clientX,t.clientY);
 
   if(isOverBoardVp(t.clientX,t.clientY)){
@@ -1660,17 +1685,22 @@ function onHandTouchMove(e){
     renderBoard();renderHand();
   }
 }
+
 function onHandTouchEnd(e){
+  clearTimeout(touchHoldTimer);
+  touchHoldTimer=null;
   document.removeEventListener('touchmove',onHandTouchMove);
   document.removeEventListener('touchend',onHandTouchEnd);
   const tid=touchHandDragTid;
   touchHandDragTid=null;
   dragTile=null;
 
-  if(!touchDragMoved){
-    // Tap — select only
+  if(!touchDragActivated){
+    // Pure tap — select/deselect
     handDragTid=null;handDragInsertIdx=null;
-    hideDragGhost();renderBoard();renderHand();
+    hideDragGhost();
+    onTileClick(tid);
+    renderBoard();renderHand();
     return;
   }
 
@@ -1691,7 +1721,7 @@ function onHandTouchEnd(e){
     }
   }
   handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
-  touchHandDragActive=false;
+  touchHandDragActive=false;touchDragActivated=false;
   hideDragGhost();renderBoard();renderHand();
 }
 
