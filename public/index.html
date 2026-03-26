@@ -1647,7 +1647,6 @@ function onMouseDragEnd(e){
 let touchDragStartX=0,touchDragStartY=0;
 
 function onHandTouchStart(e,tid){
-  e.preventDefault(); // stop browser scroll/zoom/magnifier interference
   // Clean up any previous touch state first
   cleanupTouch();
   const t=e.touches[0];
@@ -1666,7 +1665,7 @@ function onHandTouchStart(e,tid){
   },300);
 
   document.addEventListener('touchmove',onHandTouchMove,{passive:false});
-  document.addEventListener('touchend',onHandTouchEnd,{once:true});
+  document.addEventListener('touchend',onHandTouchEnd);
   e.stopPropagation();
 }
 
@@ -1710,6 +1709,7 @@ function onHandTouchMove(e){
 function onHandTouchEnd(e){
   e.preventDefault(); // kill 300ms ghost click from mobile browser
   document.removeEventListener('touchmove',onHandTouchMove);
+  document.removeEventListener('touchend',onHandTouchEnd);
   const tid=touchTid;
   const wasActivated=touchDragActivated;
   const insertIdx=touchHandInsertIdx;
