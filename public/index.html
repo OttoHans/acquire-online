@@ -753,10 +753,26 @@ let dragTile=null,touchDragActive=false,touchDragTile=null;
 // Hand reorder drag
 let handDragTid=null,handDragInsertIdx=null;
 let touchHandDragActive=false,touchHandDragTid=null,touchHandInsertIdx=null;
+// Touch hold state
+let touchHoldTimer=null,touchDragActivated=false,touchTid=null;
 const dragGhost=document.getElementById('drag-ghost');
 let chainPopupTimeout=null;
 let adminAuthed=false,adminPin=null,longPressTimer=null;
 let snapPin=null;
+
+// ── TOUCH CLEANUP (defined early so onState can call it) ──
+function cleanupTouch(){
+  if(typeof touchHoldTimer!=='undefined'){clearTimeout(touchHoldTimer);touchHoldTimer=null;}
+  touchDragActivated=false;
+  touchHandDragActive=false;
+  touchTid=null;
+  touchHandDragTid=null;
+  dragTile=null;
+  handDragTid=null;
+  handDragInsertIdx=null;
+  touchHandInsertIdx=null;
+  if(typeof hideDragGhost==='function')hideDragGhost();
+}
 
 // ── NAME ──
 function initName(){
@@ -922,12 +938,9 @@ document.getElementById('lobby-name-input').addEventListener('keydown',e=>{
 // ── GAME STATE ──
 function onState(s){
   gameState=s;
-  // Clear selected tile and all drag state on every state update
+  // Clean up all touch/drag/selection state on every state update
   selectedTile=null;
-  dragTile=null;
-  handDragTid=null;handDragInsertIdx=null;
-  touchHandInsertIdx=null;
-  hideDragGhost();
+  cleanupTouch();
   if(s.ended){showScreen('end');renderEnd();return;}
   if(currentScreen()!=='game'){showScreen('game');setTimeout(()=>fitBoard(),100);setupPush();}
   if(myIdx===null&&myName)myIdx=s.players.findIndex(p=>p.name===myName);
@@ -997,8 +1010,9 @@ function renderBoard(){
           div.classList.add('in-hand');
           // Emphasis only for selected tile
           if(selectedTile===tid)div.classList.add('in-hand-selected');
-          // Click to select always available; hover sync only on your turn
+          // Both click (desktop) and touchend (mobile) for selection
           div.addEventListener('click',()=>onTileClick(tid));
+          div.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();onTileClick(tid);},{passive:false});
           if(isMyTurn){
             div.addEventListener('mouseenter',()=>hoverSync(tid,true));
             div.addEventListener('mouseleave',()=>hoverSync(tid,false));
@@ -1630,16 +1644,16 @@ function onMouseDragEnd(e){
 }
 
 // ── TOUCH DRAG (hand tiles) — press & hold 300ms to activate drag ──
-let touchHoldTimer=null;
 let touchDragStartX=0,touchDragStartY=0;
-let touchDragActivated=false;
 
 function onHandTouchStart(e,tid){
+  // Clean up any previous touch state first
+  cleanupTouch();
   const t=e.touches[0];
-  touchDragStartX=t.clientX;touchDragStartY=t.clientY;
-  touchDragActivated=false;
+  touchDragStartX=t.clientX;
+  touchDragStartY=t.clientY;
+  touchTid=tid;
   touchHandDragTid=tid;
-  touchHandDragActive=false;
 
   // 300ms hold activates drag
   touchHoldTimer=setTimeout(()=>{
@@ -1651,45 +1665,44 @@ function onHandTouchStart(e,tid){
   },300);
 
   document.addEventListener('touchmove',onHandTouchMove,{passive:false});
-  document.addEventListener('touchend',onHandTouchEnd);
+  document.addEventListener('touchend',onHandTouchEnd,{once:true});
   e.stopPropagation();
+  // Do NOT preventDefault here — allows the 300ms timer to work naturally
 }
 
 function onHandTouchMove(e){
-  if(!touchHandDragTid)return;
+  if(!touchTid)return;
   const t=e.touches[0];
-  const dx=t.clientX-touchDragStartX,dy=t.clientY-touchDragStartY;
+  const dx=t.clientX-touchDragStartX;
+  const dy=t.clientY-touchDragStartY;
+  const dist=Math.hypot(dx,dy);
 
-  // Any movement at all cancels the hold timer if not yet activated
   if(!touchDragActivated){
-    if(Math.hypot(dx,dy)>2){
-      clearTimeout(touchHoldTimer);
-      touchHoldTimer=null;
-      // Clean up and bail — treat as a non-event
-      touchHandDragTid=null;
+    // Any movement cancels the hold — treat as a non-drag touch
+    if(dist>3){
       document.removeEventListener('touchmove',onHandTouchMove);
-      document.removeEventListener('touchend',onHandTouchEnd);
+      cleanupTouch();
     }
     return;
   }
 
+  // Drag is active
   e.preventDefault();
   moveDragGhost(t.clientX,t.clientY);
 
   if(isOverBoardVp(t.clientX,t.clientY)){
-    dragTile=touchHandDragTid;
-    handDragTid=null;handDragInsertIdx=null;
-    touchHandInsertIdx=null;
+    dragTile=touchTid;
+    handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
     renderBoard();renderHand();
   }else if(isOverHandBar(t.clientX,t.clientY)){
     dragTile=null;
-    handDragTid=touchHandDragTid;
+    handDragTid=touchTid;
     touchHandInsertIdx=getHandInsertIdx(t.clientX);
     handDragInsertIdx=touchHandInsertIdx;
     renderBoard();renderHand();
   }else{
     dragTile=null;
-    handDragTid=touchHandDragTid;
+    handDragTid=touchTid;
     handDragInsertIdx=null;
     touchHandInsertIdx=null;
     renderBoard();renderHand();
@@ -1697,42 +1710,37 @@ function onHandTouchMove(e){
 }
 
 function onHandTouchEnd(e){
-  clearTimeout(touchHoldTimer);
-  touchHoldTimer=null;
   document.removeEventListener('touchmove',onHandTouchMove);
-  document.removeEventListener('touchend',onHandTouchEnd);
-  const tid=touchHandDragTid;
-  touchHandDragTid=null;
-  dragTile=null;
+  const tid=touchTid;
+  const wasActivated=touchDragActivated;
+  const insertIdx=touchHandInsertIdx;
+  const t=e.changedTouches[0];
 
-  if(!touchDragActivated){
-    // Pure tap — select/deselect
-    handDragTid=null;handDragInsertIdx=null;
-    hideDragGhost();
-    onTileClick(tid);
+  cleanupTouch();
+
+  if(!wasActivated){
+    // Pure tap — select/deselect for emphasis
+    if(tid)onTileClick(tid);
     renderBoard();renderHand();
     return;
   }
 
-  const t=e.changedTouches[0];
+  // Drag ended
   const isMyTurn=gameState&&gameState.phase==='place'&&myIdx===gameState.currentPlayer;
   if(isMyTurn&&isOverBoardVp(t.clientX,t.clientY)&&tid){
-    handDragTid=null;handDragInsertIdx=null;
-    hideDragGhost();renderBoard();renderHand();
+    renderBoard();renderHand();
     confirmPlace(tid);
     return;
-  }else if(touchHandInsertIdx!==null&&tid){
+  }else if(insertIdx!==null&&tid){
     const fromIdx=handOrder.indexOf(tid);
     if(fromIdx!==-1){
       handOrder.splice(fromIdx,1);
-      let insertAt=touchHandInsertIdx;
+      let insertAt=insertIdx;
       if(insertAt>fromIdx)insertAt--;
       handOrder.splice(insertAt,0,tid);
     }
   }
-  handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
-  touchHandDragActive=false;touchDragActivated=false;
-  hideDragGhost();renderBoard();renderHand();
+  renderBoard();renderHand();
 }
 
 // ── ZOOM & PAN ──
