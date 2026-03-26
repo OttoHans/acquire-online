@@ -1672,40 +1672,38 @@ function onHandTouchStart(e,tid){
 
 function onHandTouchMove(e){
   if(!touchTid)return;
-  const t=e.touches[0];
-  const dx=t.clientX-touchDragStartX;
-  const dy=t.clientY-touchDragStartY;
-  const dist=Math.hypot(dx,dy);
 
-  if(!touchDragActivated){
-    // Any movement cancels the hold — treat as a non-drag touch
-    if(dist>3){
-      document.removeEventListener('touchmove',onHandTouchMove);
-      cleanupTouch();
+  // If drag is already active, process it immediately — no distance checks
+  if(touchDragActivated){
+    e.preventDefault();
+    const t=e.touches[0];
+    moveDragGhost(t.clientX,t.clientY);
+    if(isOverBoardVp(t.clientX,t.clientY)){
+      dragTile=touchTid;
+      handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
+      renderBoard();renderHand();
+    }else if(isOverHandBar(t.clientX,t.clientY)){
+      dragTile=null;
+      handDragTid=touchTid;
+      touchHandInsertIdx=getHandInsertIdx(t.clientX);
+      handDragInsertIdx=touchHandInsertIdx;
+      renderBoard();renderHand();
+    }else{
+      dragTile=null;
+      handDragTid=touchTid;
+      handDragInsertIdx=null;
+      touchHandInsertIdx=null;
+      renderBoard();renderHand();
     }
     return;
   }
 
-  // Drag is active
-  e.preventDefault();
-  moveDragGhost(t.clientX,t.clientY);
-
-  if(isOverBoardVp(t.clientX,t.clientY)){
-    dragTile=touchTid;
-    handDragTid=null;handDragInsertIdx=null;touchHandInsertIdx=null;
-    renderBoard();renderHand();
-  }else if(isOverHandBar(t.clientX,t.clientY)){
-    dragTile=null;
-    handDragTid=touchTid;
-    touchHandInsertIdx=getHandInsertIdx(t.clientX);
-    handDragInsertIdx=touchHandInsertIdx;
-    renderBoard();renderHand();
-  }else{
-    dragTile=null;
-    handDragTid=touchTid;
-    handDragInsertIdx=null;
-    touchHandInsertIdx=null;
-    renderBoard();renderHand();
+  // Hold not yet activated — only cancel if finger moves more than 10px
+  const t=e.touches[0];
+  const dist=Math.hypot(t.clientX-touchDragStartX,t.clientY-touchDragStartY);
+  if(dist>10){
+    document.removeEventListener('touchmove',onHandTouchMove);
+    cleanupTouch();
   }
 }
 
