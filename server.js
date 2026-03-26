@@ -111,14 +111,14 @@ async function sendPush(playerName, title, body, pin) {
   }
 }
 
-// ── CHAIN DEFINITIONS (updated names & colors) ──
+// ── CHAIN DEFINITIONS ──
 // Tier 1: Tower (yellow), Luxor (dark red)
-// Tier 2: Worldwide (brown), Festival (dark green), Imperial (pink)
+// Tier 2: Worldwide (burnt orange), Festival (dark green), Imperial (pink)
 // Tier 3: American (blue), Continental (teal)
 const CHAINS = [
   { id: 'tower',       name: 'Tower',       tier: 1, color: '#c8a800' },
   { id: 'luxor',       name: 'Luxor',       tier: 1, color: '#a01818' },
-  { id: 'worldwide',   name: 'Worldwide',   tier: 2, color: '#7a5c38' },
+  { id: 'worldwide',   name: 'Worldwide',   tier: 2, color: '#c8622a' },
   { id: 'festival',    name: 'Festival',    tier: 2, color: '#2e7d32' },
   { id: 'imperial',    name: 'Imperial',    tier: 2, color: '#c2185b' },
   { id: 'american',    name: 'American',    tier: 3, color: '#1565c0' },
@@ -142,11 +142,9 @@ function activeChains(board){return CHAINS.map(c=>c.id).filter(id=>chainSize(boa
 function availableChains(board){return CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)===0);}
 
 // Share price table — verified against official Acquire reference card
-// Tier 1 (Tower/Luxor), Tier 2 (Worldwide/Festival/Imperial), Tier 3 (American/Continental)
 function sharePrice(chainId, size) {
   if (size < 2) return 0;
   const tier = CHAINS.find(c => c.id === chainId).tier;
-  // Base prices by size for Tier 1
   let base;
   if (size === 2) base = 200;
   else if (size === 3) base = 300;
@@ -157,7 +155,6 @@ function sharePrice(chainId, size) {
   else if (size <= 30) base = 800;
   else if (size <= 40) base = 900;
   else base = 1000;
-  // Each tier adds $100
   return base + (tier - 1) * 100;
 }
 
@@ -194,12 +191,10 @@ function classifyTilePlacement(board, tid) {
   if (!placedNb.length) return { type: 'lone' };
   if (!chainNb.length) {
     if (neutralNb.length && availableChains(board).length) return { type: 'found' };
-    // Adjacent to neutral but no available chains = temporarily unplayable
     if (neutralNb.length && !availableChains(board).length) return { type: 'temp_unplayable' };
     return { type: 'lone' };
   }
   if (chainNb.length === 1) return { type: 'grow', chain: chainNb[0] };
-  // Multiple chains — check for safe chain merge
   const safeChains = chainNb.filter(id => isSafe(board, id));
   if (safeChains.length >= 2) return { type: 'perm_unplayable' };
   return { type: 'merge', chains: chainNb };
@@ -213,7 +208,6 @@ function createGameState(playerNames, mode, gameName) {
     id: i, name, cash: 6000, hand: [],
     stocks: Object.fromEntries(CHAINS.map(c => [c.id, 0]))
   }));
-  // Deal 6 tiles, auto-replacing permanently unplayable ones
   const tempBoard = {};
   players.forEach(p => {
     let attempts = 0;
@@ -233,11 +227,10 @@ function createGameState(playerNames, mode, gameName) {
     started: true, ended: false,
     advancedMode: mode === 'advanced',
     gameName: gameName || null,
-    endStats: null, // populated when game ends
+    endStats: null,
   };
 }
 
-// Draw a tile for a player, auto-discarding permanently unplayable tiles
 function drawTileForPlayer(state, pi, addLog) {
   const p = state.players[pi];
   let drawn = false;
@@ -248,7 +241,6 @@ function drawTileForPlayer(state, pi, addLog) {
     if (cls.type === 'perm_unplayable') {
       addLog(`Tile ${t} is permanently unplayable (would merge two safe chains) — discarded.`);
       attempts++;
-      // Don't put it back — permanently discard
       continue;
     }
     p.hand.push(t);
@@ -293,9 +285,13 @@ function publicState(state) {
     log: state.log.slice(-80),
     pendingFoundOptions: state.pendingFoundOptions,
     pendingMerge: state.pendingMerge ? {
-      chains: state.pendingMerge.chains, survivor: state.pendingMerge.survivor,
-      absorbed: state.pendingMerge.absorbed, waitingFor: state.pendingMerge.waitingFor,
-      preMergeBoard: state.pendingMerge.preMergeBoard, // board BEFORE merge for pricing
+      chains: state.pendingMerge.chains,
+      survivor: state.pendingMerge.survivor,
+      absorbed: state.pendingMerge.absorbed,
+      // Only expose the current head of the queue — not the full list
+      currentDecision: state.pendingMerge.queue[0] || null,
+      queueLength: state.pendingMerge.queue.length,
+      preMergeSizes: state.pendingMerge.preMergeSizes,
     } : null,
     started: state.started, ended: state.ended, advancedMode: state.advancedMode,
     bagCount: state.bag.length, gameName: state.gameName || null,
@@ -307,7 +303,6 @@ async function broadcastState(pin, state) {
   broadcastToRoom(pin, { type: 'state', state: publicState(state) });
   getRoomClients(pin).forEach(({ ws, name }) => {
     const p = state.players.find(pl => pl.name === name);
-    // Also send unplayable tile info
     const unplayable = p ? p.hand.filter(t => {
       const cls = classifyTilePlacement(state.board, t);
       return cls.type === 'perm_unplayable' || cls.type === 'temp_unplayable';
@@ -463,6 +458,29 @@ wss.on('connection', ws => {
   });
 });
 
+// ── BUILD SEQUENTIAL MERGE QUEUE ──
+// Order: for each absorbed chain (smallest first, ties by CHAINS array order),
+// iterate players starting from currentPlayer clockwise, skip if 0 shares.
+function buildMergeQueue(state, absorbed, currentPlayer) {
+  const n = state.players.length;
+  // Sort absorbed chains: smallest first, ties broken by CHAINS definition order
+  const sortedAbsorbed = [...absorbed].sort((a, b) => {
+    const sa = chainSize(state.board, a), sb = chainSize(state.board, b);
+    if (sa !== sb) return sa - sb;
+    return CHAINS.findIndex(c => c.id === a) - CHAINS.findIndex(c => c.id === b);
+  });
+  const queue = [];
+  for (const chainId of sortedAbsorbed) {
+    for (let offset = 0; offset < n; offset++) {
+      const pi = (currentPlayer + offset) % n;
+      if (state.players[pi].stocks[chainId] > 0) {
+        queue.push({ pi, chainId });
+      }
+    }
+  }
+  return queue;
+}
+
 async function handleGameAction(state, pi, myName, msg, pin) {
   const addLog = t => { state.log.push(t); if (state.log.length > 100) state.log = state.log.slice(-100); };
   const notifyCurrentPlayer = async () => {
@@ -472,6 +490,14 @@ async function handleGameAction(state, pi, myName, msg, pin) {
       await sendPush(cp.name, 'ACQUIRE — Your Turn!', `It's your turn in ${gn}.`, pin);
     }
   };
+  const notifyMergeDecider = async (entry) => {
+    const cp = state.players[entry.pi];
+    if (cp.name !== myName) {
+      const gn = state.gameName ? `"${state.gameName}"` : `game ${pin}`;
+      const chainName = CHAINS.find(c => c.id === entry.chainId).name;
+      await sendPush(cp.name, 'ACQUIRE — Merger Decision', `Decide what to do with your ${chainName} shares in ${gn}.`, pin);
+    }
+  };
 
   if (msg.action === 'place_tile') {
     if (state.phase !== 'place' || pi !== state.currentPlayer) return false;
@@ -479,9 +505,8 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     const cp = state.players[pi];
     if (!cp.hand.includes(tid)) return false;
 
-    // Check classification BEFORE placing
     const cls = classifyTilePlacement(state.board, tid);
-    if (cls.type === 'perm_unplayable') return false; // shouldn't happen if UI is correct
+    if (cls.type === 'perm_unplayable') return false;
     if (cls.type === 'temp_unplayable') return false;
 
     cp.hand = cp.hand.filter(t => t !== tid);
@@ -503,46 +528,40 @@ async function handleGameAction(state, pi, myName, msg, pin) {
       state.phase = 'buy';
       await notifyCurrentPlayer();
     } else if (chainNb.length > 1) {
-      // ── CORRECT MERGER SEQUENCE ──
-      // Step 1: Determine survivor (largest chain). Tile not yet assigned to any chain.
-      const sizes = chainNb.map(c => ({ id: c, size: chainSize(state.board, c) })).sort((a, b) => b.size - a.size);
+      // Determine survivor (largest). Ties broken by CHAINS array order.
+      const sizes = chainNb.map(c => ({ id: c, size: chainSize(state.board, c) }))
+        .sort((a, b) => b.size - a.size || CHAINS.findIndex(x => x.id === a.id) - CHAINS.findIndex(x => x.id === b.id));
       const survivor = sizes[0].id;
       const absorbed = chainNb.filter(c => c !== survivor);
 
-      // Step 2: Save pre-merge board state for pricing (tile is 'neutral', chains not yet merged)
+      // Save pre-merge board and sizes for pricing
       const preMergeBoard = { ...state.board };
-      // The placed tile is neutral — record the pre-merge size of each absorbed chain
       const preMergeSizes = {};
       absorbed.forEach(c => { preMergeSizes[c] = chainSize(state.board, c); });
 
-      // Step 3: Pay bonuses based on pre-merge sizes
+      // Pay bonuses based on pre-merge sizes
       absorbed.forEach(c => payBonuses(state, c, addLog, pin, preMergeBoard));
 
       const survivorChain = CHAINS.find(c => c.id === survivor);
       const absorbedNames = absorbed.map(c => CHAINS.find(x => x.id === c).name);
       addLog(`MERGER: ${absorbedNames.join(', ')} absorbed into ${survivorChain.name}.`);
 
-      // Step 4: Collect players who need to decide keep/sell/trade BEFORE merging board
-      const waitingFor = [];
-      absorbed.forEach(chainId => {
-        state.players.forEach((p, ppi) => {
-          if (p.stocks[chainId] > 0) waitingFor.push({ pi: ppi, chainId, confirmed: false });
-        });
-      });
+      // Build sequential decision queue
+      const queue = buildMergeQueue(state, absorbed, state.currentPlayer);
 
-      if (!waitingFor.length) {
-        // No stockholders — merge immediately
+      if (!queue.length) {
         doMerge(state, tid, survivor, absorbed, neutralNb);
         state.phase = 'buy';
         await notifyCurrentPlayer();
       } else {
-        // Wait for stockholder decisions — store pre-merge info for pricing
         state.phase = 'merge_pending';
         state.pendingMerge = {
-          chains: chainNb, survivor, absorbed, waitingFor,
+          chains: chainNb, survivor, absorbed, queue,
           pendingTile: tid, pendingNeutralNb: neutralNb,
           preMergeBoard, preMergeSizes,
         };
+        // Notify the first decider
+        await notifyMergeDecider(queue[0]);
       }
     } else {
       state.phase = 'buy';
@@ -556,7 +575,6 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     const chainId = msg.chainId;
     if (!availableChains(state.board).includes(chainId)) return false;
     floodFill(state.board, state.pendingTile, chainId);
-    // absorb adjacent neutrals
     let changed = true;
     while (changed) { changed = false; for (const t of Object.keys(state.board)) { if (state.board[t] === 'neutral' && neighbors(t).some(n => state.board[n] === chainId)) { state.board[t] = chainId; changed = true; } } }
     const cp = state.players[pi];
@@ -564,44 +582,56 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     const chain = CHAINS.find(c => c.id === chainId);
     addLog(`${cp.name} founded ${chain.name}! Receives 1 free share.`);
     state.phase = 'buy'; state.pendingTile = null; state.pendingFoundOptions = null;
+    await notifyCurrentPlayer();
     return true;
   }
 
   if (msg.action === 'merge_decision') {
     if (state.phase !== 'merge_pending' || !state.pendingMerge) return false;
-    const entry = state.pendingMerge.waitingFor.find(e => e.pi === pi && e.chainId === msg.chainId && !e.confirmed);
-    if (!entry) return false;
+    const queue = state.pendingMerge.queue;
+    const head = queue[0];
+    // Only the head of the queue may act
+    if (!head || head.pi !== pi || head.chainId !== msg.chainId) return false;
+
     const p = state.players[pi];
     const chainId = msg.chainId;
+    const survivor = state.pendingMerge.survivor;
     const total = p.stocks[chainId];
-    const sell = Math.max(0, Math.min(msg.sell || 0, total));
-    const trade = Math.max(0, Math.min(msg.trade || 0, Math.floor((total - sell) / 2)));
-    entry.confirmed = true;
 
-    // Price based on PRE-MERGE board
+    // Bug fix: cap trade by both what player has AND what bank has available
+    const maxTradeByBank = Math.floor(state.stocks[survivor] / 2);
+    const sell = Math.max(0, Math.min(msg.sell || 0, total));
+    const tradePossible = Math.floor((total - sell) / 2);
+    const trade = Math.max(0, Math.min(msg.trade || 0, tradePossible, maxTradeByBank));
+
     const preMergeSize = state.pendingMerge.preMergeSizes[chainId];
     const price = sharePrice(chainId, preMergeSize);
-    const survivor = state.pendingMerge.survivor;
 
     if (sell > 0) {
       p.cash += sell * price; p.stocks[chainId] -= sell; state.stocks[chainId] += sell;
       addLog(`${p.name} sold ${sell} ${CHAINS.find(c => c.id === chainId).name} @ $${price.toLocaleString()} each — receives $${(sell * price).toLocaleString()}.`);
     }
     if (trade > 0) {
-      const get = Math.min(trade, state.stocks[survivor]);
+      const survivorSharesGet = trade; // trade is already capped at maxTradeByBank
       p.stocks[chainId] -= trade * 2; state.stocks[chainId] += trade * 2;
-      p.stocks[survivor] += get; state.stocks[survivor] -= get;
-      addLog(`${p.name} traded ${trade * 2} ${CHAINS.find(c => c.id === chainId).name} → ${get} ${CHAINS.find(c => c.id === survivor).name}.`);
+      p.stocks[survivor] += survivorSharesGet; state.stocks[survivor] -= survivorSharesGet;
+      addLog(`${p.name} traded ${trade * 2} ${CHAINS.find(c => c.id === chainId).name} → ${survivorSharesGet} ${CHAINS.find(c => c.id === survivor).name}.`);
     }
     const kept = total - sell - trade * 2;
     if (kept > 0) addLog(`${p.name} keeps ${kept} ${CHAINS.find(c => c.id === chainId).name}.`);
 
-    if (state.pendingMerge.waitingFor.every(e => e.confirmed)) {
-      // All decisions in — NOW merge the board
+    // Advance the queue
+    queue.shift();
+
+    if (queue.length === 0) {
+      // All decisions done — perform the board merge
       doMerge(state, state.pendingMerge.pendingTile, survivor, state.pendingMerge.absorbed, state.pendingMerge.pendingNeutralNb);
       state.phase = 'buy';
       state.pendingMerge = null;
       await notifyCurrentPlayer();
+    } else {
+      // Notify the next decider in queue
+      await notifyMergeDecider(queue[0]);
     }
     return true;
   }
@@ -623,7 +653,6 @@ async function handleGameAction(state, pi, myName, msg, pin) {
       cp.cash -= qty * price; cp.stocks[chainId] += qty; state.stocks[chainId] -= qty;
       addLog(`${cp.name} bought ${qty} ${CHAINS.find(c => c.id === chainId).name} for $${(qty * price).toLocaleString()}.`);
     }
-    // Draw a tile (auto-discarding permanently unplayable ones)
     drawTileForPlayer(state, pi, addLog);
 
     const ac = activeChains(state.board);
@@ -632,7 +661,6 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     }
     state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
     state.phase = 'place';
-    // Auto-discard permanently unplayable tiles for the next player
     autoDiscardUnplayable(state, state.currentPlayer, addLog);
     await notifyCurrentPlayer();
     return true;
@@ -645,34 +673,28 @@ async function handleGameAction(state, pi, myName, msg, pin) {
   return false;
 }
 
-// Actually perform the board merge (called after stockholder decisions)
+// Perform the board merge after all stockholder decisions
 function doMerge(state, placedTid, survivor, absorbed, neutralNb) {
-  // Assign the placed tile to survivor
   state.board[placedTid] = survivor;
-  // Convert absorbed chain tiles to survivor
   absorbed.forEach(chainId => {
     for (const t of Object.keys(state.board)) {
       if (state.board[t] === chainId) state.board[t] = survivor;
     }
   });
-  // Flood fill from placed tile and neutral neighbors
   floodFill(state.board, placedTid, survivor);
   if (neutralNb) neutralNb.forEach(t => { if (state.board[t] === 'neutral') floodFill(state.board, t, survivor); });
 }
 
-// Auto-discard any permanently unplayable tiles in a player's hand
 function autoDiscardUnplayable(state, pi, addLog) {
   const p = state.players[pi];
   const toDiscard = p.hand.filter(t => classifyTilePlacement(state.board, t).type === 'perm_unplayable');
   if (!toDiscard.length) return;
   p.hand = p.hand.filter(t => !toDiscard.includes(t));
   toDiscard.forEach(t => addLog(`${p.name}'s tile ${t} is permanently unplayable — discarded and replaced.`));
-  // Draw replacements
   toDiscard.forEach(() => drawTileForPlayer(state, pi, addLog));
 }
 
 function payBonuses(state, chainId, log, pin, boardOverride) {
-  // Use boardOverride if provided (pre-merge board for correct sizing)
   const board = boardOverride || state.board;
   const size = chainSize(board, chainId);
   const p = sharePrice(chainId, size);
@@ -709,22 +731,17 @@ function payBonuses(state, chainId, log, pin, boardOverride) {
 }
 
 function endGame(state, addLog, pin) {
-  // Pay bonuses for all active chains
   activeChains(state.board).forEach(c => payBonuses(state, c, addLog, pin));
-  // Cash out all stocks at current prices
   state.players.forEach(p => {
-    let stockValue = 0;
     activeChains(state.board).forEach(chainId => {
       if (p.stocks[chainId] > 0) {
         const val = p.stocks[chainId] * sharePrice(chainId, chainSize(state.board, chainId));
-        stockValue += val;
         p.cash += val;
         addLog(`${p.name} cashes out ${p.stocks[chainId]} ${CHAINS.find(c => c.id === chainId).name} for $${val.toLocaleString()}.`);
       }
     });
   });
 
-  // Build end stats for snapshot display
   state.endStats = {
     players: state.players.map(p => ({
       name: p.name,
