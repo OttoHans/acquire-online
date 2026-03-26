@@ -922,6 +922,12 @@ document.getElementById('lobby-name-input').addEventListener('keydown',e=>{
 // ── GAME STATE ──
 function onState(s){
   gameState=s;
+  // Clear selected tile and all drag state on every state update
+  selectedTile=null;
+  dragTile=null;
+  handDragTid=null;handDragInsertIdx=null;
+  touchHandInsertIdx=null;
+  hideDragGhost();
   if(s.ended){showScreen('end');renderEnd();return;}
   if(currentScreen()!=='game'){showScreen('game');setTimeout(()=>fitBoard(),100);setupPush();}
   if(myIdx===null&&myName)myIdx=s.players.findIndex(p=>p.name===myName);
@@ -933,7 +939,6 @@ function onState(s){
   if(s.phase==='found_pending'&&myIdx===s.currentPlayer)openFoundModal();
   else if(s.phase==='merge_pending'){
     const pm=s.pendingMerge;
-    // Only open merge modal if I am the current head of the queue
     if(pm&&pm.currentDecision&&pm.currentDecision.pi===myIdx){
       openMergeModal();
     }
@@ -992,10 +997,11 @@ function renderBoard(){
           div.classList.add('in-hand');
           // Emphasis only for selected tile
           if(selectedTile===tid)div.classList.add('in-hand-selected');
+          // Click to select always available; hover sync only on your turn
+          div.addEventListener('click',()=>onTileClick(tid));
           if(isMyTurn){
             div.addEventListener('mouseenter',()=>hoverSync(tid,true));
             div.addEventListener('mouseleave',()=>hoverSync(tid,false));
-            div.addEventListener('click',()=>onTileClick(tid));
           }
         }
         div.textContent=col+row;
@@ -1013,10 +1019,10 @@ function renderBoard(){
 function hoverSync(tid,on){document.querySelectorAll(`.tile[data-tid="${tid}"],.htile[data-tid="${tid}"]`).forEach(el=>el.classList.toggle('hovered',on));}
 
 function onTileClick(tid){
-  if(!gameState||gameState.phase!=='place'||myIdx!==gameState.currentPlayer)return;
+  if(!gameState||!myHand.includes(tid))return;
   if(myUnplayable.includes(tid))return;
-  // Toggle selection — no placement from tap
-  if(selectedTile===tid){selectedTile=null;}else{selectedTile=tid;}
+  // Toggle selection — available to all players for board emphasis
+  selectedTile=(selectedTile===tid)?null:tid;
   renderBoard();renderHand();
   renderActionArea();
 }
@@ -1654,11 +1660,15 @@ function onHandTouchMove(e){
   const t=e.touches[0];
   const dx=t.clientX-touchDragStartX,dy=t.clientY-touchDragStartY;
 
-  // If finger moves significantly before hold fires, cancel the hold timer
+  // Any movement at all cancels the hold timer if not yet activated
   if(!touchDragActivated){
-    if(Math.hypot(dx,dy)>8){
+    if(Math.hypot(dx,dy)>2){
       clearTimeout(touchHoldTimer);
       touchHoldTimer=null;
+      // Clean up and bail — treat as a non-event
+      touchHandDragTid=null;
+      document.removeEventListener('touchmove',onHandTouchMove);
+      document.removeEventListener('touchend',onHandTouchEnd);
     }
     return;
   }
