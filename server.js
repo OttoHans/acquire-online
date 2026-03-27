@@ -35,6 +35,11 @@ async function dbInit() {
       state JSONB NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS lobbies (
+      pin VARCHAR(6) PRIMARY KEY,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS push_subs (
       id SERIAL PRIMARY KEY,
       pin VARCHAR(6) NOT NULL,
@@ -51,6 +56,7 @@ async function dbInit() {
   `);
 }
 
+// ── GAME DB ──
 async function saveGame(pin, state) {
   await pool.query(
     `INSERT INTO games(pin,state,updated_at) VALUES($1,$2,NOW()) ON CONFLICT(pin) DO UPDATE SET state=$2, updated_at=NOW()`,
@@ -67,15 +73,22 @@ async function countActiveGames() {
 }
 async function getPlayerGames(playerName) {
   const dismissed = await getDismissedPins(playerName);
+  // Started games
   const r = await pool.query(
     `SELECT pin, state, updated_at FROM games WHERE state->'players' @> $1::jsonb ORDER BY
       CASE WHEN state->>'ended'='true' THEN 1 ELSE 0 END, updated_at DESC`,
     [JSON.stringify([{ name: playerName }])]
   );
-  return r.rows.filter(row => {
+  const startedGames = r.rows.filter(row => {
     if (!row.state.ended) return true;
     return !dismissed.includes(row.pin);
   });
+  // Pending lobbies
+  const lr = await pool.query(
+    `SELECT pin, data, created_at FROM lobbies WHERE data->'players' @> $1::jsonb ORDER BY created_at DESC`,
+    [JSON.stringify([{ name: playerName }])]
+  );
+  return { startedGames, pendingLobbies: lr.rows };
 }
 async function dismissGame(playerName, pin) {
   await pool.query(`INSERT INTO dismissed_games(player_name,pin) VALUES($1,$2) ON CONFLICT DO NOTHING`, [playerName, pin]);
@@ -93,6 +106,23 @@ async function getAllGames() {
   const r = await pool.query('SELECT pin, state, updated_at FROM games ORDER BY updated_at DESC');
   return r.rows;
 }
+
+// ── LOBBY DB ──
+async function saveLobby(pin, data) {
+  await pool.query(
+    `INSERT INTO lobbies(pin,data,created_at) VALUES($1,$2,NOW()) ON CONFLICT(pin) DO UPDATE SET data=$2`,
+    [pin, JSON.stringify(data)]
+  );
+}
+async function loadLobby(pin) {
+  const r = await pool.query('SELECT data FROM lobbies WHERE pin=$1', [pin]);
+  return r.rows[0] ? r.rows[0].data : null;
+}
+async function deleteLobby(pin) {
+  await pool.query('DELETE FROM lobbies WHERE pin=$1', [pin]);
+}
+
+// ── PUSH ──
 async function savePushSub(pin, playerName, sub) {
   await pool.query(
     `INSERT INTO push_subs(pin,player_name,subscription) VALUES($1,$2,$3) ON CONFLICT(pin,player_name) DO UPDATE SET subscription=$3`,
@@ -112,9 +142,6 @@ async function sendPush(playerName, title, body, pin) {
 }
 
 // ── CHAIN DEFINITIONS ──
-// Tier 1: Tower (yellow), Luxor (dark red)
-// Tier 2: Worldwide (burnt orange), Festival (dark green), Imperial (pink)
-// Tier 3: American (blue), Continental (teal)
 const CHAINS = [
   { id: 'tower',       name: 'Tower',       tier: 1, color: '#c8a800' },
   { id: 'luxor',       name: 'Luxor',       tier: 1, color: '#a01818' },
@@ -141,7 +168,6 @@ function isSafe(board,id){return chainSize(board,id)>=11;}
 function activeChains(board){return CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)>0);}
 function availableChains(board){return CHAINS.map(c=>c.id).filter(id=>chainSize(board,id)===0);}
 
-// Share price table — verified against official Acquire reference card
 function sharePrice(chainId, size) {
   if (size < 2) return 0;
   const tier = CHAINS.find(c => c.id === chainId).tier;
@@ -182,7 +208,6 @@ function floodFill(board, tid, chainId) {
   }
 }
 
-// Classify a tile BEFORE placing it (used to check unplayable)
 function classifyTilePlacement(board, tid) {
   const nb = neighbors(tid);
   const placedNb = nb.filter(t => board[t]);
@@ -252,7 +277,6 @@ function gameSummary(pin, state, playerName) {
   const me = state.players.find(p => p.name === playerName);
   const myIdx = state.players.findIndex(p => p.name === playerName);
   const isMyTurn = !state.ended && state.currentPlayer === myIdx && state.phase === 'place';
-  const ac = activeChains(state.board);
   const myStocks = me ? CHAINS.filter(c => me.stocks[c.id] > 0).map(c => ({
     id: c.id, name: c.name, color: c.color,
     count: me.stocks[c.id],
@@ -266,7 +290,26 @@ function gameSummary(pin, state, playerName) {
     advancedMode: state.advancedMode,
     myCash: me ? me.cash : 0,
     myNet: me ? netWorth(me, state.board) : 0,
-    myStocks, activeChainCount: ac.length, bagCount: state.bag.length,
+    myStocks, bagCount: state.bag.length,
+    pending: false,
+  };
+}
+
+function lobbySummary(pin, lobbyData, playerName) {
+  return {
+    pin,
+    gameName: lobbyData.gameName || null,
+    players: lobbyData.players.map(p => p.name),
+    mode: lobbyData.mode,
+    creator: lobbyData.creator,
+    isCreator: lobbyData.creator === playerName,
+    pending: true,
+    ended: false,
+    isMyTurn: false,
+    myCash: 0,
+    myNet: 0,
+    myStocks: [],
+    advancedMode: lobbyData.mode === 'advanced',
   };
 }
 
@@ -288,7 +331,6 @@ function publicState(state) {
       chains: state.pendingMerge.chains,
       survivor: state.pendingMerge.survivor,
       absorbed: state.pendingMerge.absorbed,
-      // Only expose the current head of the queue — not the full list
       currentDecision: state.pendingMerge.queue[0] || null,
       queueLength: state.pendingMerge.queue.length,
       preMergeSizes: state.pendingMerge.preMergeSizes,
@@ -313,6 +355,7 @@ async function broadcastState(pin, state) {
   });
 }
 
+// In-memory lobby cache (populated from DB on demand)
 const lobbies = new Map();
 
 // HTTP ROUTES
@@ -332,15 +375,22 @@ app.post('/new-game', async (req, res) => {
     const pin = generatePin();
     const mode = req.body?.mode || 'beginner';
     const gameName = req.body?.gameName?.trim() || null;
-    lobbies.set(pin, { players: [], open: true, mode, gameName });
+    const creatorName = req.body?.creatorName?.trim() || null;
+    const lobbyData = { players: [], open: true, mode, gameName, creator: creatorName };
+    lobbies.set(pin, lobbyData);
+    await saveLobby(pin, lobbyData);
     res.json({ pin });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
 app.get('/my-games/:playerName', async (req, res) => {
   try {
-    const rows = await getPlayerGames(decodeURIComponent(req.params.playerName));
-    const summaries = rows.map(row => gameSummary(row.pin, row.state, decodeURIComponent(req.params.playerName)));
+    const playerName = decodeURIComponent(req.params.playerName);
+    const { startedGames, pendingLobbies } = await getPlayerGames(playerName);
+    const summaries = [
+      ...pendingLobbies.map(row => lobbySummary(row.pin, row.data, playerName)),
+      ...startedGames.map(row => gameSummary(row.pin, row.state, playerName)),
+    ];
     res.json({ games: summaries });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -364,7 +414,10 @@ app.post('/rematch', async (req, res) => {
     const newPin = generatePin();
     const mode = state.advancedMode ? 'advanced' : 'beginner';
     const gameName = state.gameName ? `${state.gameName} (rematch)` : null;
-    lobbies.set(newPin, { players: [], open: true, mode, gameName });
+    const creator = state.players[0]?.name || null;
+    const lobbyData = { players: [], open: true, mode, gameName, creator };
+    lobbies.set(newPin, lobbyData);
+    await saveLobby(newPin, lobbyData);
     res.json({ pin: newPin, mode, gameName, players: state.players.map(p => p.name) });
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
@@ -387,7 +440,7 @@ app.get('/admin/games', async (req, res) => {
 app.delete('/admin/games/:pin', async (req, res) => {
   const adminPin = process.env.ADMIN_PIN;
   if (!adminPin || req.headers['x-admin-pin'] !== adminPin) return res.status(403).json({ error: 'Forbidden' });
-  try { await deleteGame(req.params.pin); res.json({ ok: true }); }
+  try { await deleteGame(req.params.pin); await deleteLobby(req.params.pin); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -409,6 +462,8 @@ wss.on('connection', ws => {
         const { pin, name } = msg;
         if (!pin || !name) return;
         myPin = pin; myName = name;
+
+        // Check for a started game first
         const existingState = await loadGame(pin);
         if (existingState && existingState.started) {
           const isPlayer = existingState.players.some(p => p.name === name);
@@ -422,28 +477,58 @@ wss.on('connection', ws => {
           }
           return;
         }
-        if (!lobbies.has(pin)) { ws.send(JSON.stringify({ type: 'error', msg: `No game found with PIN ${pin}.` })); myPin = null; myName = null; return; }
-        const lobby = lobbies.get(pin);
+
+        // Load lobby from memory or DB
+        let lobby = lobbies.get(pin);
+        if (!lobby) {
+          const dbLobby = await loadLobby(pin);
+          if (dbLobby) { lobby = dbLobby; lobbies.set(pin, lobby); }
+        }
+        if (!lobby) { ws.send(JSON.stringify({ type: 'error', msg: `No game found with PIN ${pin}.` })); myPin = null; myName = null; return; }
         if (!lobby.open) { ws.send(JSON.stringify({ type: 'error', msg: `Game ${pin} has already started.` })); myPin = null; myName = null; return; }
+
+        // Add player if not already in lobby
         if (!lobby.players.find(p => p.name === name)) {
           if (lobby.players.length >= 6) { ws.send(JSON.stringify({ type: 'error', msg: 'This game is full.' })); myPin = null; myName = null; return; }
           if (lobby.players.some(p => p.name.toLowerCase() === name.toLowerCase())) { ws.send(JSON.stringify({ type: 'error', msg: `Name "${name}" is taken. Use a different name.` })); myPin = null; myName = null; return; }
+          // Set creator to first joiner if not already set
+          if (!lobby.creator && lobby.players.length === 0) lobby.creator = name;
           lobby.players.push({ name });
+          await saveLobby(pin, lobby);
         }
+
         getRoomClients(pin).add({ ws, name });
-        broadcastToRoom(pin, { type: 'lobby', players: lobby.players.map(p => p.name), open: lobby.open, pin, gameName: lobby.gameName, mode: lobby.mode });
+        broadcastToRoom(pin, { type: 'lobby', players: lobby.players.map(p => p.name), open: lobby.open, pin, gameName: lobby.gameName, mode: lobby.mode, creator: lobby.creator });
         return;
       }
+
       if (msg.action === 'start_game') {
-        if (!myPin) return;
-        const lobby = lobbies.get(myPin);
-        if (!lobby || lobby.players.length < 2) { ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players.' })); return; }
+        if (!myPin || !myName) return;
+        let lobby = lobbies.get(myPin);
+        if (!lobby) {
+          const dbLobby = await loadLobby(myPin);
+          if (dbLobby) { lobby = dbLobby; lobbies.set(myPin, lobby); }
+        }
+        if (!lobby) { ws.send(JSON.stringify({ type: 'error', msg: 'Lobby not found.' })); return; }
+        // Only creator can start
+        if (lobby.creator && lobby.creator !== myName) { ws.send(JSON.stringify({ type: 'error', msg: 'Only the game creator can start the game.' })); return; }
+        if (lobby.players.length < 2) { ws.send(JSON.stringify({ type: 'error', msg: 'Need at least 2 players.' })); return; }
         lobby.open = false;
         const state = createGameState(lobby.players.map(p => p.name), lobby.mode || 'beginner', lobby.gameName);
         await saveGame(myPin, state);
+        await deleteLobby(myPin);
+        lobbies.delete(myPin);
         await broadcastState(myPin, state);
+        // Notify all non-creator players that game has started
+        for (const p of lobby.players) {
+          if (p.name !== myName) {
+            const gn = lobby.gameName ? `"${lobby.gameName}"` : `game ${myPin}`;
+            await sendPush(p.name, 'ACQUIRE — Game Started!', `${myName} has started ${gn}. It's your turn soon!`, myPin);
+          }
+        }
         return;
       }
+
       if (!myPin || !myName) return;
       const state = await loadGame(myPin);
       if (!state || !state.started || state.ended) return;
@@ -459,11 +544,8 @@ wss.on('connection', ws => {
 });
 
 // ── BUILD SEQUENTIAL MERGE QUEUE ──
-// Order: for each absorbed chain (smallest first, ties by CHAINS array order),
-// iterate players starting from currentPlayer clockwise, skip if 0 shares.
 function buildMergeQueue(state, absorbed, currentPlayer) {
   const n = state.players.length;
-  // Sort absorbed chains: smallest first, ties broken by CHAINS definition order
   const sortedAbsorbed = [...absorbed].sort((a, b) => {
     const sa = chainSize(state.board, a), sb = chainSize(state.board, b);
     if (sa !== sb) return sa - sb;
@@ -473,9 +555,7 @@ function buildMergeQueue(state, absorbed, currentPlayer) {
   for (const chainId of sortedAbsorbed) {
     for (let offset = 0; offset < n; offset++) {
       const pi = (currentPlayer + offset) % n;
-      if (state.players[pi].stocks[chainId] > 0) {
-        queue.push({ pi, chainId });
-      }
+      if (state.players[pi].stocks[chainId] > 0) queue.push({ pi, chainId });
     }
   }
   return queue;
@@ -504,20 +584,16 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     const tid = msg.tile;
     const cp = state.players[pi];
     if (!cp.hand.includes(tid)) return false;
-
     const cls = classifyTilePlacement(state.board, tid);
     if (cls.type === 'perm_unplayable') return false;
     if (cls.type === 'temp_unplayable') return false;
-
     cp.hand = cp.hand.filter(t => t !== tid);
     state.board[tid] = 'neutral';
     addLog(`${cp.name} placed tile ${tid}.`);
-
     const nb = neighbors(tid);
     const placedNb = nb.filter(t => state.board[t]);
     const chainNb = [...new Set(placedNb.map(t => state.board[t] !== 'neutral' ? state.board[t] : null).filter(Boolean))];
     const neutralNb = placedNb.filter(t => state.board[t] === 'neutral');
-
     if (!chainNb.length && neutralNb.length && availableChains(state.board).length) {
       state.phase = 'found_pending';
       state.pendingTile = tid;
@@ -528,39 +604,25 @@ async function handleGameAction(state, pi, myName, msg, pin) {
       state.phase = 'buy';
       await notifyCurrentPlayer();
     } else if (chainNb.length > 1) {
-      // Determine survivor (largest). Ties broken by CHAINS array order.
       const sizes = chainNb.map(c => ({ id: c, size: chainSize(state.board, c) }))
         .sort((a, b) => b.size - a.size || CHAINS.findIndex(x => x.id === a.id) - CHAINS.findIndex(x => x.id === b.id));
       const survivor = sizes[0].id;
       const absorbed = chainNb.filter(c => c !== survivor);
-
-      // Save pre-merge board and sizes for pricing
       const preMergeBoard = { ...state.board };
       const preMergeSizes = {};
       absorbed.forEach(c => { preMergeSizes[c] = chainSize(state.board, c); });
-
-      // Pay bonuses based on pre-merge sizes
       absorbed.forEach(c => payBonuses(state, c, addLog, pin, preMergeBoard));
-
       const survivorChain = CHAINS.find(c => c.id === survivor);
       const absorbedNames = absorbed.map(c => CHAINS.find(x => x.id === c).name);
       addLog(`MERGER: ${absorbedNames.join(', ')} absorbed into ${survivorChain.name}.`);
-
-      // Build sequential decision queue
       const queue = buildMergeQueue(state, absorbed, state.currentPlayer);
-
       if (!queue.length) {
         doMerge(state, tid, survivor, absorbed, neutralNb);
         state.phase = 'buy';
         await notifyCurrentPlayer();
       } else {
         state.phase = 'merge_pending';
-        state.pendingMerge = {
-          chains: chainNb, survivor, absorbed, queue,
-          pendingTile: tid, pendingNeutralNb: neutralNb,
-          preMergeBoard, preMergeSizes,
-        };
-        // Notify the first decider
+        state.pendingMerge = { chains: chainNb, survivor, absorbed, queue, pendingTile: tid, pendingNeutralNb: neutralNb, preMergeBoard, preMergeSizes };
         await notifyMergeDecider(queue[0]);
       }
     } else {
@@ -590,47 +652,34 @@ async function handleGameAction(state, pi, myName, msg, pin) {
     if (state.phase !== 'merge_pending' || !state.pendingMerge) return false;
     const queue = state.pendingMerge.queue;
     const head = queue[0];
-    // Only the head of the queue may act
     if (!head || head.pi !== pi || head.chainId !== msg.chainId) return false;
-
     const p = state.players[pi];
     const chainId = msg.chainId;
     const survivor = state.pendingMerge.survivor;
     const total = p.stocks[chainId];
-
-    // Bug fix: cap trade by both what player has AND what bank has available
     const maxTradeByBank = Math.floor(state.stocks[survivor] / 2);
     const sell = Math.max(0, Math.min(msg.sell || 0, total));
     const tradePossible = Math.floor((total - sell) / 2);
     const trade = Math.max(0, Math.min(msg.trade || 0, tradePossible, maxTradeByBank));
-
     const preMergeSize = state.pendingMerge.preMergeSizes[chainId];
     const price = sharePrice(chainId, preMergeSize);
-
     if (sell > 0) {
       p.cash += sell * price; p.stocks[chainId] -= sell; state.stocks[chainId] += sell;
       addLog(`${p.name} sold ${sell} ${CHAINS.find(c => c.id === chainId).name} @ $${price.toLocaleString()} each — receives $${(sell * price).toLocaleString()}.`);
     }
     if (trade > 0) {
-      const survivorSharesGet = trade; // trade is already capped at maxTradeByBank
       p.stocks[chainId] -= trade * 2; state.stocks[chainId] += trade * 2;
-      p.stocks[survivor] += survivorSharesGet; state.stocks[survivor] -= survivorSharesGet;
-      addLog(`${p.name} traded ${trade * 2} ${CHAINS.find(c => c.id === chainId).name} → ${survivorSharesGet} ${CHAINS.find(c => c.id === survivor).name}.`);
+      p.stocks[survivor] += trade; state.stocks[survivor] -= trade;
+      addLog(`${p.name} traded ${trade * 2} ${CHAINS.find(c => c.id === chainId).name} → ${trade} ${CHAINS.find(c => c.id === survivor).name}.`);
     }
     const kept = total - sell - trade * 2;
     if (kept > 0) addLog(`${p.name} keeps ${kept} ${CHAINS.find(c => c.id === chainId).name}.`);
-
-    // Advance the queue
     queue.shift();
-
     if (queue.length === 0) {
-      // All decisions done — perform the board merge
       doMerge(state, state.pendingMerge.pendingTile, survivor, state.pendingMerge.absorbed, state.pendingMerge.pendingNeutralNb);
-      state.phase = 'buy';
-      state.pendingMerge = null;
+      state.phase = 'buy'; state.pendingMerge = null;
       await notifyCurrentPlayer();
     } else {
-      // Notify the next decider in queue
       await notifyMergeDecider(queue[0]);
     }
     return true;
@@ -654,7 +703,6 @@ async function handleGameAction(state, pi, myName, msg, pin) {
       addLog(`${cp.name} bought ${qty} ${CHAINS.find(c => c.id === chainId).name} for $${(qty * price).toLocaleString()}.`);
     }
     drawTileForPlayer(state, pi, addLog);
-
     const ac = activeChains(state.board);
     if (ac.length && (ac.every(c => isSafe(state.board, c)) || ac.some(c => chainSize(state.board, c) >= 41))) {
       endGame(state, addLog, pin); return true;
@@ -673,7 +721,6 @@ async function handleGameAction(state, pi, myName, msg, pin) {
   return false;
 }
 
-// Perform the board merge after all stockholder decisions
 function doMerge(state, placedTid, survivor, absorbed, neutralNb) {
   state.board[placedTid] = survivor;
   absorbed.forEach(chainId => {
@@ -741,16 +788,10 @@ function endGame(state, addLog, pin) {
       }
     });
   });
-
   state.endStats = {
-    players: state.players.map(p => ({
-      name: p.name,
-      finalCash: p.cash,
-      stocks: Object.fromEntries(CHAINS.map(c => [c.id, p.stocks[c.id]])),
-    })),
+    players: state.players.map(p => ({ name: p.name, finalCash: p.cash, stocks: Object.fromEntries(CHAINS.map(c => [c.id, p.stocks[c.id]])) })),
     chainSizes: Object.fromEntries(CHAINS.map(c => [c.id, chainSize(state.board, c.id)])),
   };
-
   state.phase = 'ended'; state.ended = true;
   const sorted = [...state.players].sort((a, b) => b.cash - a.cash);
   addLog(`GAME OVER! Winner: ${sorted[0].name} with $${sorted[0].cash.toLocaleString()}.`);
