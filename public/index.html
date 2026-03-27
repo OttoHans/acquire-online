@@ -800,6 +800,21 @@ async function loadDashboard(){
 
 function buildGameCard(g){
   const div=document.createElement('div');
+  // Pending lobby card
+  if(g.pending){
+    div.className='game-card';
+    const name=g.gameName||`Game ${g.pin}`;
+    div.innerHTML=`
+      <div class="card-name">${name}</div>
+      <div class="card-pin">PIN ${g.pin} · ${g.advancedMode?'ADVANCED':'BEGINNER'} · WAITING TO START</div>
+      <div class="card-players">${g.players.join(' · ')}</div>
+      <div class="card-turn"><b>${g.isCreator?'You created this game':'Waiting for '+g.creator+' to start'}</b></div>
+      ${g.isCreator?'<button class="card-view-btn" style="border-color:var(--gold2);color:var(--gold)">OPEN LOBBY</button>':'<button class="card-view-btn">VIEW LOBBY</button>'}`;
+    div.querySelector('.card-view-btn').addEventListener('click',e=>{e.stopPropagation();enterGame(g.pin);});
+    div.addEventListener('click',()=>enterGame(g.pin));
+    return div;
+  }
+  // Started game card
   div.className='game-card'+(g.ended?' card-ended':'')+(g.isMyTurn?' my-turn':'');
   const name=g.gameName||`Game ${g.pin}`;
   const turnText=g.ended?'FINISHED':(g.isMyTurn?'YOUR TURN':'Waiting for '+g.currentPlayer);
@@ -839,7 +854,7 @@ document.getElementById('create-confirm-btn').addEventListener('click',async()=>
   const gameName=document.getElementById('create-name-input').value.trim()||null;
   setCreateStatus('Creating...');
   try{
-    const r=await fetch('/new-game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:createMode,gameName})});
+    const r=await fetch('/new-game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:createMode,gameName,creatorName:myName})});
     const data=await r.json();
     if(data.error){setCreateStatus(data.error,true);return;}
     closeModal('create-modal');
@@ -885,8 +900,18 @@ function onLobby(msg){
   document.getElementById('lobby-pin-disp').textContent=myPin;
   document.getElementById('lobby-mode-disp').textContent=`Mode: ${(msg.mode||'beginner').toUpperCase()}`;
   const pl=document.getElementById('lobby-players');
-  pl.innerHTML=(msg.players||[]).map(n=>`<div class="lp-row"><div class="lp-dot"></div>${n}${n===myName?' <span style="color:var(--muted);font-size:0.68rem">(you)</span>':''}</div>`).join('');
-  document.getElementById('start-btn').disabled=(msg.players||[]).length<2;
+  pl.innerHTML=(msg.players||[]).map(n=>`<div class="lp-row"><div class="lp-dot"></div>${n}${n===myName?' <span style="color:var(--muted);font-size:0.68rem">(you)</span>':''}${n===msg.creator?' <span style="color:var(--gold);font-size:0.68rem">★ creator</span>':''}</div>`).join('');
+  const isCreator=msg.creator===myName;
+  const startBtn=document.getElementById('start-btn');
+  startBtn.disabled=!isCreator||(msg.players||[]).length<2;
+  startBtn.title=isCreator?'':'Only the game creator can start the game.';
+  if(!isCreator){
+    startBtn.textContent='WAITING FOR CREATOR';
+    startBtn.style.opacity='0.5';
+  }else{
+    startBtn.textContent='START GAME';
+    startBtn.style.opacity='';
+  }
 }
 document.getElementById('start-btn').addEventListener('click',()=>send({action:'start_game'}));
 document.getElementById('lobby-back-btn').addEventListener('click',()=>goToDashboard());
