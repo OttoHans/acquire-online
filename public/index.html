@@ -190,15 +190,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
 .htile.temp-unplayable{border-color:#5a4010;color:#6a5020;cursor:not-allowed;opacity:0.5}
 .htile.perm-unplayable{border-color:#3a1010;color:#5a2020;cursor:not-allowed;opacity:0.3;text-decoration:line-through}
 .htile.hand-ghost{background:var(--surf2);border:1px dashed var(--faint);opacity:0.4;cursor:default;pointer-events:none}
-/* Arrange button */
-.arrange-btn{background:none;border:1px solid var(--faint);color:var(--muted);font-size:0.52rem;letter-spacing:2px;padding:2px 6px;cursor:pointer;transition:all 0.12s;text-transform:uppercase;white-space:nowrap;font-family:'Courier Prime',monospace}
-.arrange-btn:hover{border-color:var(--gold);color:var(--gold)}
-.arrange-btn.active{border-color:var(--gold2);color:var(--gold);background:#150f00}
-/* Arrange mode gap zones */
-.hand-gap{display:inline-flex;align-items:center;justify-content:center;height:36px;width:18px;flex-shrink:0;cursor:pointer;position:relative}
-.hand-gap::after{content:'';display:block;width:3px;height:20px;background:var(--faint);border-radius:2px;transition:all 0.12s}
-.hand-gap:hover::after,.hand-gap.gap-target::after{background:var(--gold2);width:3px;height:30px;box-shadow:0 0 6px rgba(200,160,60,0.4)}
-/* Board tile: passive highlight (all hand tiles on your turn) */
+/* Board tile: passive highlight */
 .tile.in-hand{border-color:var(--gold-dim);color:var(--gold);cursor:pointer}
 /* Board tile: emphasis (selected tile) */
 .tile.in-hand-selected{border-color:#fff;color:#fff;outline:2px solid rgba(255,255,255,0.5);outline-offset:1px;z-index:3;background:#352400}
@@ -518,7 +510,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
         </div>
       </div>
       <div class="tiles-cash-bar">
-        <div class="tiles-label">Your<br>Tiles<br><button class="arrange-btn" id="arrange-btn" onclick="toggleArrange()">ARR</button></div>
+        <div class="tiles-label">Your<br>Tiles</div>
         <div class="hand-tiles" id="hand-tiles"></div>
         <div class="inline-cash">
           <div class="inline-cash-label">YOUR CASH</div>
@@ -751,8 +743,7 @@ function netWorth(p,board){
 // STATE
 let myName=null,myPin=null,myIdx=null;
 let ws=null,gameState=null,myHand=[],myUnplayable=[],selectedTile=null;
-let handOrder=[]; // local tile order for rearranging
-let arrangeMode=false; // arrange mode active
+let handOrder=[];
 let createMode='beginner';
 let buyQtys={};
 let zoom=1,panX=0,panY=0,isPanning=false,panStart={x:0,y:0};
@@ -779,7 +770,7 @@ function setNameStatus(m,err=false){const el=document.getElementById('name-statu
 // ── DASHBOARD ──
 function goToDashboard(){
   disconnectWS();
-  myPin=null;myIdx=null;gameState=null;myHand=[];myUnplayable=[];selectedTile=null;handOrder=[];arrangeMode=false;
+  myPin=null;myIdx=null;gameState=null;myHand=[];myUnplayable=[];selectedTile=null;handOrder=[];
   showScreen('dash');
   document.getElementById('dash-player-name').textContent=myName;
   initAdminLongPress();
@@ -928,7 +919,6 @@ function onState(s){
   gameState=s;
   // Clear selection and arrange mode on every state update
   selectedTile=null;
-  arrangeMode=false;
   if(s.ended){showScreen('end');renderEnd();return;}
   if(currentScreen()!=='game'){showScreen('game');setTimeout(()=>fitBoard(),100);setupPush();}
   if(myIdx===null&&myName)myIdx=s.players.findIndex(p=>p.name===myName);
@@ -1016,34 +1006,17 @@ function hoverSync(tid,on){document.querySelectorAll(`.tile[data-tid="${tid}"],.
 function onTileClick(tid){
   if(!gameState||!myHand.includes(tid))return;
   if(myUnplayable.includes(tid))return;
-  if(arrangeMode){
-    // In arrange mode, tap tile to select it (switches selection)
-    selectedTile=(selectedTile===tid)?null:tid;
-    renderHand();
-    return;
-  }
-  // Normal mode: toggle selection
   selectedTile=(selectedTile===tid)?null:tid;
   renderBoard();renderHand();
   renderActionArea();
 }
 
 function onBoardTileClick(tid){
-  // Only fires when this board tile corresponds to the selected hand tile
-  if(!gameState||arrangeMode)return;
+  if(!gameState)return;
   if(selectedTile!==tid)return;
   const isMyTurn=gameState.phase==='place'&&myIdx===gameState.currentPlayer;
   if(!isMyTurn)return;
   confirmPlace(tid);
-}
-
-function toggleArrange(){
-  arrangeMode=!arrangeMode;
-  selectedTile=null;
-  const btn=document.getElementById('arrange-btn');
-  if(btn)btn.className='arrange-btn'+(arrangeMode?' active':'');
-  renderHand();
-  if(!arrangeMode)renderBoard();
 }
 
 function confirmPlace(tid){
@@ -1100,26 +1073,13 @@ function renderHand(){
 
   // Dynamic gap calculation
   const containerW=el.parentElement?el.parentElement.clientWidth-48-100:200;
-  const tileW=36;
-  const gapTarget=arrangeMode?18:12;
-  const maxGap=handOrder.length>1?Math.floor((containerW-tileW*handOrder.length)/(handOrder.length+1)):gapTarget;
-  const gap=Math.max(4,Math.min(gapTarget,maxGap));
-  el.style.gap=arrangeMode?'0':'';
-  el.style.paddingLeft=arrangeMode?'0':gap+'px';
-  el.style.paddingRight=arrangeMode?'0':gap+'px';
-  if(!arrangeMode)el.style.gap=gap+'px';
+  const maxGap=handOrder.length>1?Math.floor((containerW-36*handOrder.length)/(handOrder.length+1)):12;
+  const gap=Math.max(4,Math.min(12,maxGap));
+  el.style.gap=gap+'px';
+  el.style.paddingLeft=gap+'px';
+  el.style.paddingRight=gap+'px';
 
-  handOrder.forEach((tid,idx)=>{
-    // In arrange mode: gap zone before each tile
-    if(arrangeMode){
-      const gapEl=document.createElement('span');
-      gapEl.className='hand-gap';
-      gapEl.dataset.gapIdx=idx;
-      gapEl.addEventListener('click',()=>onGapClick(idx));
-      gapEl.addEventListener('touchend',e=>{e.preventDefault();onGapClick(idx);},{passive:false});
-      el.appendChild(gapEl);
-    }
-
+  handOrder.forEach(tid=>{
     const span=document.createElement('span');
     span.className='htile';span.dataset.tid=tid;
     const isPerm=myUnplayable.includes(tid)&&classifyTile(board,tid,avail)==='perm_unplayable';
@@ -1127,7 +1087,7 @@ function renderHand(){
 
     if(isPerm){span.classList.add('perm-unplayable');span.title='Permanently unplayable';}
     else if(isTemp){span.classList.add('temp-unplayable');span.title='Cannot play until a chain is disbanded';}
-    else if(!isMyTurn&&!arrangeMode){span.style.opacity='0.6';}
+    else if(!isMyTurn){span.style.opacity='0.6';}
 
     if(selectedTile===tid)span.classList.add('selected');
     span.textContent=tid;
@@ -1135,35 +1095,13 @@ function renderHand(){
     if(!isPerm&&!isTemp){
       span.addEventListener('click',()=>onTileClick(tid));
       span.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();onTileClick(tid);},{passive:false});
-      if(isMyTurn&&!arrangeMode){
+      if(isMyTurn){
         span.addEventListener('mouseenter',()=>hoverSync(tid,true));
         span.addEventListener('mouseleave',()=>hoverSync(tid,false));
       }
     }
     el.appendChild(span);
   });
-
-  // Final gap zone at end in arrange mode
-  if(arrangeMode){
-    const gapEl=document.createElement('span');
-    gapEl.className='hand-gap';
-    gapEl.dataset.gapIdx=handOrder.length;
-    gapEl.addEventListener('click',()=>onGapClick(handOrder.length));
-    gapEl.addEventListener('touchend',e=>{e.preventDefault();onGapClick(handOrder.length);},{passive:false});
-    el.appendChild(gapEl);
-  }
-}
-
-function onGapClick(gapIdx){
-  if(!selectedTile)return;
-  const fromIdx=handOrder.indexOf(selectedTile);
-  if(fromIdx===-1)return;
-  handOrder.splice(fromIdx,1);
-  let insertAt=gapIdx;
-  if(insertAt>fromIdx)insertAt--;
-  handOrder.splice(insertAt,0,selectedTile);
-  selectedTile=null;
-  renderHand();
 }
 
 // ── CHAINS PANEL ──
