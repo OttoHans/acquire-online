@@ -452,6 +452,96 @@ app.get('/game-snapshot/:pin', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── RENAME ──
+app.post('/rename', async (req, res) => {
+  try {
+    const { oldName, newName } = req.body;
+    if (!oldName || !newName) return res.status(400).json({ error: 'Missing fields' });
+    if (oldName === newName) return res.json({ ok: true });
+    // Update active (non-ended) games where this player appears
+    const gamesR = await pool.query(
+      `SELECT pin, state FROM games WHERE state->'players' @> $1::jsonb AND state->>'ended'='false'`,
+      [JSON.stringify([{ name: oldName }])]
+    );
+    for (const row of gamesR.rows) {
+      const state = row.state;
+      state.players = state.players.map(p => p.name === oldName ? { ...p, name: newName } : p);
+      if (state.log) state.log = state.log.map(l => l.replaceAll(oldName, newName));
+      await saveGame(row.pin, state);
+      // Broadcast updated state to anyone connected
+      broadcastToRoom(row.pin, { type: 'state', state: publicState(state) });
+    }
+    // Update pending lobbies
+    const lobbiesR = await pool.query(`SELECT pin, data FROM lobbies`);
+    for (const row of lobbiesR.rows) {
+      const data = row.data;
+      let changed = false;
+      data.players = data.players.map(p => {
+        if (p.name === oldName) { changed = true; return { ...p, name: newName }; }
+        return p;
+      });
+      if (data.creator === oldName) { data.creator = newName; changed = true; }
+      if (changed) {
+        await saveLobby(row.pin, data);
+        lobbies.set(row.pin, data);
+        broadcastToRoom(row.pin, { type: 'lobby', players: data.players.map(p => p.name), open: data.open, pin: row.pin, gameName: data.gameName, mode: data.mode, creator: data.creator });
+      }
+    }
+    // Update push_subs
+    await pool.query(`UPDATE push_subs SET player_name=$1 WHERE player_name=$2`, [newName, oldName]);
+    // Update dismissed_games
+    await pool.query(`UPDATE dismissed_games SET player_name=$1 WHERE player_name=$2`, [newName, oldName]);
+    res.json({ ok: true });
+  } catch (e) { console.error('Rename error:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── LOBBY LEAVE ──
+app.post('/lobby-leave', async (req, res) => {
+  try {
+    const { pin, playerName } = req.body;
+    if (!pin || !playerName) return res.status(400).json({ error: 'Missing fields' });
+    let lobby = lobbies.get(pin) || await loadLobby(pin);
+    if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
+    const isCreator = lobby.creator === playerName;
+    if (isCreator) {
+      // Broadcast closure to others first, then clean up
+      broadcastToRoom(pin, { type: 'lobby_closed' });
+      await deleteLobby(pin);
+      lobbies.delete(pin);
+    } else {
+      lobby.players = lobby.players.filter(p => p.name !== playerName);
+      await saveLobby(pin, lobby);
+      lobbies.set(pin, lobby);
+      broadcastToRoom(pin, { type: 'lobby', players: lobby.players.map(p => p.name), open: lobby.open, pin, gameName: lobby.gameName, mode: lobby.mode, creator: lobby.creator });
+    }
+    res.json({ ok: true });
+  } catch (e) { console.error('Lobby leave error:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── LOBBY KICK ──
+app.post('/lobby-kick', async (req, res) => {
+  try {
+    const { pin, playerName, requester } = req.body;
+    if (!pin || !playerName || !requester) return res.status(400).json({ error: 'Missing fields' });
+    let lobby = lobbies.get(pin) || await loadLobby(pin);
+    if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
+    if (lobby.creator !== requester) return res.status(403).json({ error: 'Only the creator can kick players.' });
+    // Notify kicked player via WS if they are connected
+    getRoomClients(pin).forEach(({ ws, name }) => {
+      if (name === playerName && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'kicked', msg: `You were removed from the lobby by ${requester}.` }));
+      }
+    });
+    // Remove from lobby regardless of WS connection status
+    lobby.players = lobby.players.filter(p => p.name !== playerName);
+    await saveLobby(pin, lobby);
+    lobbies.set(pin, lobby);
+    // Broadcast updated lobby to remaining players
+    broadcastToRoom(pin, { type: 'lobby', players: lobby.players.map(p => p.name), open: lobby.open, pin, gameName: lobby.gameName, mode: lobby.mode, creator: lobby.creator });
+    res.json({ ok: true });
+  } catch (e) { console.error('Lobby kick error:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // WEBSOCKET
 wss.on('connection', ws => {
   let myPin = null, myName = null;

@@ -430,7 +430,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <div class="game-title">ACQUIRE</div>
     <div class="game-sub">ASYNC MULTIPLAYER · 2–6 PLAYERS</div>
     <div class="name-field">
-      <label>Your Name</label>
+      <label id="name-label">Your Name</label>
       <input type="text" id="name-input" placeholder="Enter your name..." maxlength="20" autocomplete="off"/>
     </div>
     <button class="btn-cta" id="name-continue-btn">CONTINUE</button>
@@ -445,6 +445,7 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <div class="dash-title" id="dash-title-el">ACQUIRE</div>
     <div class="dash-player">Playing as <b id="dash-player-name">—</b></div>
     <div class="dash-actions">
+      <button class="dash-btn" id="rename-btn" onclick="openRename()">✎ NAME</button>
       <button class="dash-btn" id="join-game-btn">JOIN</button>
       <button class="dash-btn pri" id="create-game-btn">+ NEW GAME</button>
       <button class="dash-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
@@ -467,16 +468,8 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
     <div class="lobby-players" id="lobby-players"></div>
     <button class="lbtn start" id="start-btn" disabled>START GAME</button>
     <div style="display:flex;gap:6px;margin-bottom:0.4rem">
-      <button class="lbtn" id="lobby-back-btn" style="margin-bottom:0;flex:1">BACK</button>
+      <button class="lbtn" id="lobby-leave-btn" style="margin-bottom:0;flex:1;border-color:#603020;color:#a05030">LEAVE</button>
       <button class="lbtn" id="lobby-fs-btn" style="margin-bottom:0;flex:0;padding-left:12px;padding-right:12px" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
-      <button class="lbtn" id="lobby-rename-btn" style="margin-bottom:0;flex:1">CHANGE NAME</button>
-    </div>
-    <div id="lobby-rename-area" style="display:none;margin-bottom:0.5rem">
-      <div style="display:flex;gap:6px">
-        <input type="text" id="lobby-name-input" maxlength="20" autocomplete="off"
-          style="flex:1;background:#0a0800;border:1px solid var(--faint);color:var(--txt);padding:0.5rem 0.7rem;font-family:'Courier Prime',monospace;font-size:0.88rem;outline:none"/>
-        <button class="lbtn" id="lobby-name-confirm-btn" style="margin-bottom:0;flex:0;padding-left:12px;padding-right:12px">OK</button>
-      </div>
     </div>
     <div class="status-msg" id="lobby-status"></div>
   </div>
@@ -586,6 +579,21 @@ button{font-family:'Courier Prime',monospace;cursor:pointer}
       <button class="snap-btn dismiss" id="snap-dismiss-btn">DISMISS</button>
     </div>
     <div style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:0.5rem" id="snap-status"></div>
+  </div>
+</div>
+
+<!-- RENAME MODAL -->
+<div class="modal-overlay" id="rename-modal">
+  <div class="modal-sheet">
+    <h2>CHANGE NAME</h2>
+    <div class="mfield">
+      <label>New Name</label>
+      <input type="text" id="rename-input" placeholder="Enter new name..." maxlength="20" autocomplete="off"/>
+    </div>
+    <div style="font-size:0.68rem;color:var(--muted);margin-bottom:1rem;line-height:1.6">This will update your name in all active games.</div>
+    <button class="mbtn confirm" id="rename-confirm-btn">CONFIRM</button>
+    <button class="mbtn" onclick="closeModal('rename-modal')">CANCEL</button>
+    <div class="mstatus" id="rename-status"></div>
   </div>
 </div>
 
@@ -757,6 +765,9 @@ let snapPin=null;
 function initName(){
   const saved=localStorage.getItem('acquire-player-name');
   if(saved){myName=saved;goToDashboard();return;}
+  // First time — show name entry
+  document.getElementById('name-label').textContent='Your Name';
+  document.getElementById('name-continue-btn').textContent='CONTINUE';
   showScreen('name');
 }
 document.getElementById('name-continue-btn').addEventListener('click',()=>{
@@ -766,6 +777,32 @@ document.getElementById('name-continue-btn').addEventListener('click',()=>{
 });
 document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('name-continue-btn').click();});
 function setNameStatus(m,err=false){const el=document.getElementById('name-status');el.textContent=m;el.className='status-msg'+(err?' err':'');}
+
+// ── RENAME ──
+function openRename(){
+  document.getElementById('rename-input').value=myName||'';
+  document.getElementById('rename-status').textContent='';
+  document.getElementById('rename-status').className='mstatus';
+  openModal('rename-modal');
+  setTimeout(()=>document.getElementById('rename-input').focus(),100);
+}
+document.getElementById('rename-confirm-btn').addEventListener('click',async()=>{
+  const newName=document.getElementById('rename-input').value.trim();
+  if(!newName){document.getElementById('rename-status').textContent='Please enter a name.';document.getElementById('rename-status').className='mstatus err';return;}
+  if(newName===myName){closeModal('rename-modal');return;}
+  document.getElementById('rename-status').textContent='Updating...';
+  try{
+    const r=await fetch('/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oldName:myName,newName})});
+    const data=await r.json();
+    if(data.error){document.getElementById('rename-status').textContent=data.error;document.getElementById('rename-status').className='mstatus err';return;}
+    myName=newName;
+    localStorage.setItem('acquire-player-name',newName);
+    document.getElementById('dash-player-name').textContent=newName;
+    closeModal('rename-modal');
+    loadDashboard();
+  }catch(e){document.getElementById('rename-status').textContent='Server error.';document.getElementById('rename-status').className='mstatus err';}
+});
+document.getElementById('rename-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('rename-confirm-btn').click();});
 
 // ── DASHBOARD ──
 function goToDashboard(){
@@ -885,6 +922,8 @@ function connectAndJoin(pin,name,mode){
     else if(msg.type==='private'){myHand=msg.hand||[];myUnplayable=msg.unplayable||[];renderHand();}
     else if(msg.type==='error'){setJoinStatus(msg.msg,true);setCreateStatus(msg.msg,true);}
     else if(msg.type==='bonus')showBonusBanner(msg.bonuses);
+    else if(msg.type==='kicked'){alert(msg.msg||'You were removed from the lobby.');goToDashboard();}
+    else if(msg.type==='lobby_closed'){alert('The game creator cancelled the lobby.');goToDashboard();}
   };
   ws.onclose=()=>{if(currentScreen()==='game')setAmsg('Disconnected — tap "← Games" to return.');};
 }
@@ -895,49 +934,50 @@ function send(msg){if(ws&&ws.readyState===1)ws.send(JSON.stringify(msg));}
 function onLobby(msg){
   if(gameState?.started)return;
   myPin=msg.pin||myPin;
+  // If I'm no longer in the player list, I was kicked
+  if(myName&&msg.players&&!msg.players.includes(myName)){
+    goToDashboard();
+    return;
+  }
   showScreen('lobby');
   document.getElementById('lobby-game-name').textContent=msg.gameName||'ACQUIRE';
   document.getElementById('lobby-pin-disp').textContent=myPin;
   document.getElementById('lobby-mode-disp').textContent=`Mode: ${(msg.mode||'beginner').toUpperCase()}`;
-  const pl=document.getElementById('lobby-players');
-  pl.innerHTML=(msg.players||[]).map(n=>`<div class="lp-row"><div class="lp-dot"></div>${n}${n===myName?' <span style="color:var(--muted);font-size:0.68rem">(you)</span>':''}${n===msg.creator?' <span style="color:var(--gold);font-size:0.68rem">★ creator</span>':''}</div>`).join('');
   const isCreator=msg.creator===myName;
+  const pl=document.getElementById('lobby-players');
+  pl.innerHTML=(msg.players||[]).map(n=>{
+    const isMe=n===myName;
+    const isCreatorPlayer=n===msg.creator;
+    const kickBtn=isCreator&&!isMe?`<button onclick="kickPlayer('${n}')" style="margin-left:auto;background:none;border:1px solid #603020;color:#a05030;padding:1px 8px;font-size:0.62rem;cursor:pointer;font-family:'Courier Prime',monospace">KICK</button>`:'';
+    return`<div class="lp-row"><div class="lp-dot"></div><span>${n}${isMe?' <span style="color:var(--muted);font-size:0.68rem">(you)</span>':''}${isCreatorPlayer?' <span style="color:var(--gold);font-size:0.68rem">★</span>':''}</span>${kickBtn}</div>`;
+  }).join('');
   const startBtn=document.getElementById('start-btn');
   startBtn.disabled=!isCreator||(msg.players||[]).length<2;
-  startBtn.title=isCreator?'':'Only the game creator can start the game.';
-  if(!isCreator){
-    startBtn.textContent='WAITING FOR CREATOR';
-    startBtn.style.opacity='0.5';
-  }else{
-    startBtn.textContent='START GAME';
-    startBtn.style.opacity='';
-  }
+  if(!isCreator){startBtn.textContent='WAITING FOR CREATOR';startBtn.style.opacity='0.5';}
+  else{startBtn.textContent='START GAME';startBtn.style.opacity='';}
+  // Leave button label differs for creator
+  const leaveBtn=document.getElementById('lobby-leave-btn');
+  leaveBtn.textContent=isCreator?'CANCEL GAME':'LEAVE';
 }
+
 document.getElementById('start-btn').addEventListener('click',()=>send({action:'start_game'}));
-document.getElementById('lobby-back-btn').addEventListener('click',()=>goToDashboard());
-document.getElementById('lobby-rename-btn').addEventListener('click',()=>{
-  const area=document.getElementById('lobby-rename-area');
-  const isOpen=area.style.display!=='none';
-  area.style.display=isOpen?'none':'block';
-  if(!isOpen){
-    const inp=document.getElementById('lobby-name-input');
-    inp.value=myName;inp.focus();inp.select();
-  }
+
+document.getElementById('lobby-leave-btn').addEventListener('click',async()=>{
+  if(!myPin||!myName)return;
+  try{
+    const r=await fetch('/lobby-leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:myPin,playerName:myName})});
+    const data=await r.json();
+    if(data.error){document.getElementById('lobby-status').textContent=data.error;return;}
+    goToDashboard();
+  }catch(e){document.getElementById('lobby-status').textContent='Server error.';}
 });
-document.getElementById('lobby-name-confirm-btn').addEventListener('click',()=>{
-  const inp=document.getElementById('lobby-name-input');
-  const newName=inp.value.trim();
-  if(!newName||newName===myName){document.getElementById('lobby-rename-area').style.display='none';return;}
-  myName=newName;
-  localStorage.setItem('acquire-player-name',newName);
-  document.getElementById('lobby-rename-area').style.display='none';
-  document.getElementById('lobby-status').textContent='Name updated to '+newName;
-  setTimeout(()=>document.getElementById('lobby-status').textContent='',2500);
-  if(myPin)connectAndJoin(myPin,newName);
-});
-document.getElementById('lobby-name-input').addEventListener('keydown',e=>{
-  if(e.key==='Enter')document.getElementById('lobby-name-confirm-btn').click();
-});
+
+async function kickPlayer(playerName){
+  if(!myPin)return;
+  try{
+    await fetch('/lobby-kick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:myPin,playerName,requester:myName})});
+  }catch(e){}
+}
 
 // ── GAME STATE ──
 function onState(s){
